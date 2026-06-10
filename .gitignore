@@ -1,0 +1,15 @@
+# Build output
+/bin/
+/warren
+
+# Environment files
+.env
+.env.*
+
+# Editor noise
+.idea/
+.vscode/
+*.swp
+
+# NOTE: generated code (*_templ.go, sqlc output) is committed on purpose —
+# a fresh clone must build with only the Go toolchain. Do not ignore it.

@@ -1,0 +1,23 @@
+package web
+
+// Layout is the base HTML shell every page renders inside.
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title } · Warren</title>
+			<link rel="stylesheet" href="/assets/app.css"/>
+			<script src="/assets/htmx.min.js" defer></script>
+		</head>
+		<body>
+			<header class="topbar">
+				<a class="brand" href="/">Warren</a>
+			</header>
+			<main class="content">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}

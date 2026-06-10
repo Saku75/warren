@@ -1,0 +1,30 @@
+# Local development stack. Postgres is unused until Phase 1 lands the first
+# schema, but it is wired now so the dev loop never changes.
+services:
+  warren:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      WARREN_DATABASE_URL: postgres://warren:warren@db:5432/warren?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: warren
+      POSTGRES_PASSWORD: warren
+      POSTGRES_DB: warren
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warren -d warren"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

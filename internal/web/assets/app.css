@@ -1,0 +1,53 @@
+/* Minimal Phase 0 stylesheet. A real design system comes with Phase 1. */
+
+:root {
+	--bg: #fafaf8;
+	--fg: #1c1c1a;
+	--muted: #6b6b66;
+	--accent: #8a5a2b;
+	--border: #e3e3de;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+body {
+	margin: 0;
+	font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+	background: var(--bg);
+	color: var(--fg);
+	line-height: 1.5;
+}
+
+.topbar {
+	display: flex;
+	align-items: center;
+	padding: 0.75rem 1.5rem;
+	border-bottom: 1px solid var(--border);
+	background: #fff;
+}
+
+.brand {
+	font-weight: 700;
+	font-size: 1.1rem;
+	color: var(--accent);
+	text-decoration: none;
+	letter-spacing: 0.02em;
+}
+
+.content {
+	max-width: 60rem;
+	margin: 0 auto;
+	padding: 2rem 1.5rem;
+}
+
+.hero h1 {
+	margin: 0 0 0.5rem;
+	font-size: 2rem;
+}
+
+.hero .meta {
+	color: var(--muted);
+	font-size: 0.875rem;
+}
