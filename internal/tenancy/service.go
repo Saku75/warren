@@ -113,6 +113,11 @@ func (s *Service) GetByRef(ctx context.Context, ref string) (gen.Tenant, error) 
 	return t, fault.FromDB(err, "tenant "+ref)
 }
 
+// Count returns the total number of tenants.
+func (s *Service) Count(ctx context.Context) (int64, error) {
+	return s.q.CountTenants(ctx)
+}
+
 // List returns tenants ordered by name plus the total count.
 func (s *Service) List(ctx context.Context, limit, offset int32) ([]gen.Tenant, int64, error) {
 	total, err := s.q.CountTenants(ctx)

@@ -25,6 +25,7 @@ import (
 // HTTP exchange succeeded. Full-page renders keep real status codes.
 type uiHandler struct {
 	log       *slog.Logger
+	version   string
 	tenancy   *tenancy.Service
 	dcim      *dcim.Service
 	changelog *changelog.Service
@@ -34,6 +35,8 @@ type uiHandler struct {
 const uiListLimit = 200
 
 func (u *uiHandler) routes(r chi.Router) {
+	r.Get("/", u.dashboard)
+
 	r.Get("/tenancy/tenants", u.tenantsPage)
 	r.Post("/tenancy/tenants", u.createTenant)
 	r.Get("/tenancy/tenants/{ref}", u.tenantDetail)

@@ -18,6 +18,9 @@ SELECT * FROM locations WHERE site_id = $1 ORDER BY name, id;
 -- name: CountLocationsBySite :one
 SELECT count(*) FROM locations WHERE site_id = $1;
 
+-- name: CountLocations :one
+SELECT count(*) FROM locations;
+
 -- name: ListLocationChildren :many
 SELECT * FROM locations WHERE parent_id = $1 ORDER BY name, id;
 

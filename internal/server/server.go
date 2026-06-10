@@ -62,9 +62,8 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 	r.Mount("/api/v1", api.New(log, tenancySvc, dcimSvc, changelogSvc).Routes())
 
 	// HTMX UI. CSRF protection lands together with sessions/auth.
-	ui := &uiHandler{log: log, tenancy: tenancySvc, dcim: dcimSvc, changelog: changelogSvc}
+	ui := &uiHandler{log: log, version: version, tenancy: tenancySvc, dcim: dcimSvc, changelog: changelogSvc}
 	ui.routes(r)
-	r.Get("/", s.handleHome)
 
 	s.http = &http.Server{
 		Addr:              cfg.Listen,
@@ -119,12 +118,6 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ready"))
-}
-
-func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
-	if err := web.Home(s.version).Render(r.Context(), w); err != nil {
-		s.log.Error("render home", "err", err)
-	}
 }
 
 // requestLogger emits one structured line per request.

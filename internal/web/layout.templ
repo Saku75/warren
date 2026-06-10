@@ -1,7 +1,9 @@
 package web
 
-// Layout is the base HTML shell every page renders inside.
-templ Layout(title string) {
+// Layout is the application shell: sidebar navigation plus a content
+// column. section marks the active nav entry ("dashboard", "tenants",
+// "sites", "changelog", or "" for none).
+templ Layout(title string, section string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -12,22 +14,35 @@ templ Layout(title string) {
 			<script src="/assets/htmx.min.js" defer></script>
 		</head>
 		<body>
-			<header class="topbar">
-				<a class="brand" href="/">Warren</a>
-				<nav class="nav">
-					<a href="/dcim/sites">Sites</a>
-					<a href="/tenancy/tenants">Tenants</a>
-					<a href="/changelog">Changelog</a>
-				</nav>
-			</header>
-			<main class="content">
-				{ children... }
-			</main>
+			<div class="shell">
+				<aside class="sidebar">
+					<a class="brand" href="/">
+						<span class="brand-mark">W</span>
+						<span>Warren</span>
+					</a>
+					<nav class="side-nav">
+						@navLink("/", "Dashboard", section == "dashboard")
+						<span class="nav-group">Organization</span>
+						@navLink("/tenancy/tenants", "Tenants", section == "tenants")
+						<span class="nav-group">DCIM</span>
+						@navLink("/dcim/sites", "Sites", section == "sites")
+						<span class="nav-group">System</span>
+						@navLink("/changelog", "Changelog", section == "changelog")
+					</nav>
+				</aside>
+				<main class="content">
+					{ children... }
+				</main>
+			</div>
 		</body>
 	</html>
 }
 
-// Alert renders an error banner inside a section.
+templ navLink(href string, label string, active bool) {
+	<a href={ templ.URL(href) } class={ "nav-link", templ.KV("active", active) }>{ label }</a>
+}
+
+// Alert renders an error banner.
 templ Alert(msg string) {
 	if msg != "" {
 		<div class="alert" role="alert">{ msg }</div>
@@ -46,9 +61,11 @@ templ KindChip(kind string) {
 
 // ErrorPage is the full-page error fallback.
 templ ErrorPage(msg string) {
-	@Layout("Error") {
-		<h1>Something went wrong</h1>
-		<p class="alert" role="alert">{ msg }</p>
-		<p><a href="/">Back to start</a></p>
+	@Layout("Error", "") {
+		<header class="page-header">
+			<h1>Something went wrong</h1>
+		</header>
+		@Alert(msg)
+		<p><a href="/">Back to the dashboard</a></p>
 	}
 }

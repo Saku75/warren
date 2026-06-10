@@ -1,18 +1,62 @@
 package web
 
-// Home is the landing page.
-templ Home(version string) {
-	@Layout("Home") {
-		<section class="hero">
-			<h1>Warren</h1>
-			<p>Infrastructure resource modeling: datacenter infrastructure and IP address management.</p>
-			<ul class="quick-links">
-				<li><a href="/dcim/sites">Sites</a> — physical sites and their location trees</li>
-				<li><a href="/tenancy/tenants">Tenants</a> — who owns what</li>
-				<li><a href="/changelog">Changelog</a> — every change, who and when</li>
-				<li><a href="/api/v1/dcim/sites">REST API</a> — same capabilities, JSON over HTTP</li>
-			</ul>
-			<p class="meta">version { version } · phase 1 — organization</p>
+import (
+	"fmt"
+	"github.com/saku75/warren/internal/db/gen"
+)
+
+// DashboardStats are the object counts shown on the dashboard.
+type DashboardStats struct {
+	Sites     int64
+	Locations int64
+	Tenants   int64
+	Changes   int64
+}
+
+// Dashboard is the landing page: object counts and recent activity.
+templ Dashboard(version string, stats DashboardStats, recent []gen.Changelog) {
+	@Layout("Dashboard", "dashboard") {
+		<header class="page-header">
+			<h1>Dashboard</h1>
+		</header>
+		<div class="stats">
+			@statCard("/dcim/sites", stats.Sites, "Sites")
+			@statCard("/dcim/sites", stats.Locations, "Locations")
+			@statCard("/tenancy/tenants", stats.Tenants, "Tenants")
+			@statCard("/changelog", stats.Changes, "Changes logged")
+		</div>
+		<section class="card">
+			<header class="card-head">
+				<h2>Recent activity</h2>
+				<a class="card-link" href="/changelog">View all</a>
+			</header>
+			if len(recent) == 0 {
+				<p class="empty">Nothing has changed yet. Create a site or a tenant to get started.</p>
+			} else {
+				<table class="objects">
+					<thead>
+						<tr><th>When</th><th>Action</th><th>Type</th><th>Object</th></tr>
+					</thead>
+					<tbody>
+						for _, e := range recent {
+							<tr>
+								<td class="muted">{ e.EventAt.Format("2006-01-02 15:04") }</td>
+								<td><span class={ "badge", "badge-" + e.Action }>{ e.Action }</span></td>
+								<td><code>{ e.ObjectType }</code></td>
+								<td>{ e.ObjectLabel }</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
 		</section>
+		<p class="meta">Warren { version } · phase 1 — organization</p>
 	}
+}
+
+templ statCard(href string, value int64, label string) {
+	<a class="stat-card" href={ templ.URL(href) }>
+		<span class="stat-value">{ fmt.Sprint(value) }</span>
+		<span class="stat-label">{ label }</span>
+	</a>
 }

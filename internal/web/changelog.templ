@@ -7,27 +7,31 @@ import (
 
 // ChangelogPage lists recent changes, newest first.
 templ ChangelogPage(items []gen.Changelog, total int64) {
-	@Layout("Changelog") {
-		<h1>Changelog</h1>
-		<p class="meta">{ fmt.Sprintf("%d events", total) }</p>
-		<table class="objects">
-			<thead>
-				<tr><th>When</th><th>Actor</th><th>Action</th><th>Type</th><th>Object</th></tr>
-			</thead>
-			<tbody>
-				if len(items) == 0 {
-					<tr><td colspan="5" class="empty">Nothing has changed yet.</td></tr>
-				}
-				for _, e := range items {
-					<tr>
-						<td title={ e.EventAt.String() }>{ e.EventAt.Format("2006-01-02 15:04:05") }</td>
-						<td>{ e.Actor }</td>
-						<td><span class={ "badge", "badge-" + e.Action }>{ e.Action }</span></td>
-						<td><code>{ e.ObjectType }</code></td>
-						<td>{ e.ObjectLabel }</td>
-					</tr>
-				}
-			</tbody>
-		</table>
+	@Layout("Changelog", "changelog") {
+		<header class="page-header">
+			<h1>Changelog</h1>
+			<span class="meta">{ fmt.Sprintf("%d events", total) }</span>
+		</header>
+		<div class="card table-card">
+			<table class="objects">
+				<thead>
+					<tr><th>When</th><th>Actor</th><th>Action</th><th>Type</th><th>Object</th></tr>
+				</thead>
+				<tbody>
+					if len(items) == 0 {
+						<tr><td colspan="5" class="empty">Nothing has changed yet.</td></tr>
+					}
+					for _, e := range items {
+						<tr>
+							<td class="muted" title={ e.EventAt.String() }>{ e.EventAt.Format("2006-01-02 15:04:05") }</td>
+							<td>{ e.Actor }</td>
+							<td><span class={ "badge", "badge-" + e.Action }>{ e.Action }</span></td>
+							<td><code>{ e.ObjectType }</code></td>
+							<td>{ e.ObjectLabel }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
 	}
 }

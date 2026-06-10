@@ -11,6 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const countLocations = `-- name: CountLocations :one
+SELECT count(*) FROM locations
+`
+
+func (q *Queries) CountLocations(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countLocations)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countLocationsBySite = `-- name: CountLocationsBySite :one
 SELECT count(*) FROM locations WHERE site_id = $1
 `

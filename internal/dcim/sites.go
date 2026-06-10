@@ -148,6 +148,16 @@ func (s *Service) GetSiteByRef(ctx context.Context, ref string) (gen.Site, error
 	return site, fault.FromDB(err, "site "+ref)
 }
 
+// CountSites returns the total number of sites.
+func (s *Service) CountSites(ctx context.Context) (int64, error) {
+	return s.q.CountSites(ctx)
+}
+
+// CountLocations returns the total number of locations across all sites.
+func (s *Service) CountLocations(ctx context.Context) (int64, error) {
+	return s.q.CountLocations(ctx)
+}
+
 // ListSites returns sites (with tenant display fields) and the total count.
 func (s *Service) ListSites(ctx context.Context, limit, offset int32) ([]gen.ListSitesRow, int64, error) {
 	total, err := s.q.CountSites(ctx)
