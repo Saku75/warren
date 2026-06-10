@@ -19,7 +19,7 @@ services:
       POSTGRES_PASSWORD: warren
       POSTGRES_DB: warren
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U warren -d warren"]
       interval: 5s
