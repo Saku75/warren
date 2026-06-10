@@ -47,10 +47,33 @@ type Site struct {
 	Description string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	SiteGroupID *uuid.UUID
+}
+
+type SiteGroup struct {
+	ID          uuid.UUID
+	ParentID    *uuid.UUID
+	Slug        string
+	Name        string
+	Kind        string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Tenant struct {
+	ID            uuid.UUID
+	Slug          string
+	Name          string
+	Description   string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	TenantGroupID *uuid.UUID
+}
+
+type TenantGroup struct {
 	ID          uuid.UUID
+	ParentID    *uuid.UUID
 	Slug        string
 	Name        string
 	Description string

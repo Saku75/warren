@@ -43,6 +43,12 @@ func (u *uiHandler) routes(r chi.Router) {
 	r.Post("/tenancy/tenants/{ref}", u.updateTenant)
 	r.Delete("/tenancy/tenants/{ref}", u.deleteTenant)
 
+	r.Get("/tenancy/tenant-groups", u.tenantGroupsPage)
+	r.Post("/tenancy/tenant-groups", u.createTenantGroup)
+	r.Get("/tenancy/tenant-groups/*", u.tenantGroupDetail)
+	r.Post("/tenancy/tenant-groups/*", u.updateTenantGroup)
+	r.Delete("/tenancy/tenant-groups/*", u.deleteTenantGroup)
+
 	r.Get("/dcim/sites", u.sitesPage)
 	r.Post("/dcim/sites", u.createSite)
 	r.Get("/dcim/sites/{ref}", u.siteDetail)
@@ -53,6 +59,12 @@ func (u *uiHandler) routes(r chi.Router) {
 	r.Get("/dcim/locations/*", u.locationDetail)
 	r.Post("/dcim/locations/*", u.updateLocation)
 	r.Delete("/dcim/locations/*", u.deleteLocation)
+
+	r.Get("/dcim/site-groups", u.siteGroupsPage)
+	r.Post("/dcim/site-groups", u.createSiteGroup)
+	r.Get("/dcim/site-groups/*", u.siteGroupDetail)
+	r.Post("/dcim/site-groups/*", u.updateSiteGroup)
+	r.Delete("/dcim/site-groups/*", u.deleteSiteGroup)
 
 	r.Get("/changelog", u.changelogPage)
 }

@@ -19,6 +19,7 @@ type SiteInput struct {
 	Slug        string
 	Status      string
 	TenantRef   string
+	GroupRef    string
 	Facility    string
 	TimeZone    string
 	Description string
@@ -31,6 +32,7 @@ type SiteUpdate struct {
 	Slug        *string
 	Status      *string
 	TenantRef   *string
+	GroupRef    *string
 	Facility    *string
 	TimeZone    *string
 	Description *string
@@ -47,6 +49,9 @@ func siteSnapshot(s gen.Site) map[string]any {
 	}
 	if s.TenantID != nil {
 		snap["tenant_id"] = s.TenantID.String()
+	}
+	if s.SiteGroupID != nil {
+		snap["site_group_id"] = s.SiteGroupID.String()
 	}
 	return snap
 }
@@ -105,6 +110,10 @@ func (s *Service) CreateSite(ctx context.Context, in SiteInput) (gen.Site, error
 	if err != nil {
 		return gen.Site{}, err
 	}
+	groupID, err := s.resolveSiteGroupRef(ctx, in.GroupRef)
+	if err != nil {
+		return gen.Site{}, err
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -119,6 +128,7 @@ func (s *Service) CreateSite(ctx context.Context, in SiteInput) (gen.Site, error
 		Name:        in.Name,
 		Status:      in.Status,
 		TenantID:    tenantID,
+		SiteGroupID: groupID,
 		Facility:    in.Facility,
 		TimeZone:    in.TimeZone,
 		Description: in.Description,
@@ -212,6 +222,13 @@ func (s *Service) UpdateSiteByRef(ctx context.Context, ref string, up SiteUpdate
 			return gen.Site{}, err
 		}
 	}
+	groupID := cur.SiteGroupID
+	if up.GroupRef != nil {
+		groupID, err = s.resolveSiteGroupRef(ctx, *up.GroupRef)
+		if err != nil {
+			return gen.Site{}, err
+		}
+	}
 
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
@@ -226,6 +243,7 @@ func (s *Service) UpdateSiteByRef(ctx context.Context, ref string, up SiteUpdate
 		Name:        next.Name,
 		Status:      next.Status,
 		TenantID:    tenantID,
+		SiteGroupID: groupID,
 		Facility:    next.Facility,
 		TimeZone:    next.TimeZone,
 		Description: next.Description,

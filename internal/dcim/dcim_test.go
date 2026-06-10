@@ -164,7 +164,7 @@ func TestLocationTreeAndPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tree: %v", err)
 	}
-	if len(tree) != 1 || tree[0].Location.Slug != "building-a" {
+	if len(tree) != 1 || tree[0].Item.Slug != "building-a" {
 		t.Fatalf("tree roots wrong: %+v", tree)
 	}
 	if len(tree[0].Children) != 2 { // floor-1 and row-1 under building

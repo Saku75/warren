@@ -25,8 +25,10 @@ templ Layout(title string, section string) {
 						@navLink("/", "Dashboard", section == "dashboard")
 						<span class="nav-group">Organization</span>
 						@navLink("/tenancy/tenants", "Tenants", section == "tenants")
+						@navLink("/tenancy/tenant-groups", "Tenant groups", section == "tenant-groups")
 						<span class="nav-group">DCIM</span>
 						@navLink("/dcim/sites", "Sites", section == "sites")
+						@navLink("/dcim/site-groups", "Site groups", section == "site-groups")
 						<span class="nav-group">System</span>
 						@navLink("/changelog", "Changelog", section == "changelog")
 					</nav>

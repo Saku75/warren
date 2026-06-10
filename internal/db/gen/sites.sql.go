@@ -24,9 +24,9 @@ func (q *Queries) CountSites(ctx context.Context) (int64, error) {
 }
 
 const createSite = `-- name: CreateSite :one
-INSERT INTO sites (id, slug, name, status, tenant_id, facility, time_zone, description)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at
+INSERT INTO sites (id, slug, name, status, tenant_id, site_group_id, facility, time_zone, description)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at, site_group_id
 `
 
 type CreateSiteParams struct {
@@ -35,6 +35,7 @@ type CreateSiteParams struct {
 	Name        string
 	Status      string
 	TenantID    *uuid.UUID
+	SiteGroupID *uuid.UUID
 	Facility    string
 	TimeZone    string
 	Description string
@@ -47,6 +48,7 @@ func (q *Queries) CreateSite(ctx context.Context, arg CreateSiteParams) (Site, e
 		arg.Name,
 		arg.Status,
 		arg.TenantID,
+		arg.SiteGroupID,
 		arg.Facility,
 		arg.TimeZone,
 		arg.Description,
@@ -63,6 +65,7 @@ func (q *Queries) CreateSite(ctx context.Context, arg CreateSiteParams) (Site, e
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SiteGroupID,
 	)
 	return i, err
 }
@@ -80,7 +83,7 @@ func (q *Queries) DeleteSite(ctx context.Context, id uuid.UUID) (int64, error) {
 }
 
 const getSite = `-- name: GetSite :one
-SELECT id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at FROM sites WHERE id = $1
+SELECT id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at, site_group_id FROM sites WHERE id = $1
 `
 
 func (q *Queries) GetSite(ctx context.Context, id uuid.UUID) (Site, error) {
@@ -97,12 +100,13 @@ func (q *Queries) GetSite(ctx context.Context, id uuid.UUID) (Site, error) {
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SiteGroupID,
 	)
 	return i, err
 }
 
 const getSiteBySlug = `-- name: GetSiteBySlug :one
-SELECT id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at FROM sites WHERE slug = $1
+SELECT id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at, site_group_id FROM sites WHERE slug = $1
 `
 
 func (q *Queries) GetSiteBySlug(ctx context.Context, slug string) (Site, error) {
@@ -119,14 +123,18 @@ func (q *Queries) GetSiteBySlug(ctx context.Context, slug string) (Site, error) 
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SiteGroupID,
 	)
 	return i, err
 }
 
 const listSites = `-- name: ListSites :many
-SELECT s.id, s.slug, s.name, s.status, s.tenant_id, s.facility, s.time_zone, s.description, s.created_at, s.updated_at, t.slug AS tenant_slug, t.name AS tenant_name
+SELECT s.id, s.slug, s.name, s.status, s.tenant_id, s.facility, s.time_zone, s.description, s.created_at, s.updated_at, s.site_group_id,
+       t.slug AS tenant_slug, t.name AS tenant_name,
+       g.slug AS group_slug, g.name AS group_name
 FROM sites s
 LEFT JOIN tenants t ON t.id = s.tenant_id
+LEFT JOIN site_groups g ON g.id = s.site_group_id
 ORDER BY s.name, s.id
 LIMIT $1 OFFSET $2
 `
@@ -147,11 +155,14 @@ type ListSitesRow struct {
 	Description string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	SiteGroupID *uuid.UUID
 	TenantSlug  *string
 	TenantName  *string
+	GroupSlug   *string
+	GroupName   *string
 }
 
-// Sites with their tenant's display fields for lists and detail pages.
+// Sites with tenant and group display fields for lists.
 func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSitesRow, error) {
 	rows, err := q.db.Query(ctx, listSites, arg.Limit, arg.Offset)
 	if err != nil {
@@ -172,8 +183,11 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.SiteGroupID,
 			&i.TenantSlug,
 			&i.TenantName,
+			&i.GroupSlug,
+			&i.GroupName,
 		); err != nil {
 			return nil, err
 		}
@@ -187,10 +201,10 @@ func (q *Queries) ListSites(ctx context.Context, arg ListSitesParams) ([]ListSit
 
 const updateSite = `-- name: UpdateSite :one
 UPDATE sites
-SET slug = $2, name = $3, status = $4, tenant_id = $5, facility = $6,
-    time_zone = $7, description = $8, updated_at = now()
+SET slug = $2, name = $3, status = $4, tenant_id = $5, site_group_id = $6,
+    facility = $7, time_zone = $8, description = $9, updated_at = now()
 WHERE id = $1
-RETURNING id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at
+RETURNING id, slug, name, status, tenant_id, facility, time_zone, description, created_at, updated_at, site_group_id
 `
 
 type UpdateSiteParams struct {
@@ -199,6 +213,7 @@ type UpdateSiteParams struct {
 	Name        string
 	Status      string
 	TenantID    *uuid.UUID
+	SiteGroupID *uuid.UUID
 	Facility    string
 	TimeZone    string
 	Description string
@@ -211,6 +226,7 @@ func (q *Queries) UpdateSite(ctx context.Context, arg UpdateSiteParams) (Site, e
 		arg.Name,
 		arg.Status,
 		arg.TenantID,
+		arg.SiteGroupID,
 		arg.Facility,
 		arg.TimeZone,
 		arg.Description,
@@ -227,6 +243,7 @@ func (q *Queries) UpdateSite(ctx context.Context, arg UpdateSiteParams) (Site, e
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.SiteGroupID,
 	)
 	return i, err
 }

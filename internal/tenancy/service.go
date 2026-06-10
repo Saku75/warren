@@ -30,18 +30,22 @@ func NewService(pool *pgxpool.Pool) *Service {
 	return &Service{pool: pool, q: gen.New(pool)}
 }
 
-// Input are the writable tenant fields. An empty Slug is derived from Name.
+// Input are the writable tenant fields. An empty Slug is derived from
+// Name. GroupRef (optional) is a tenant group ID or slug path.
 type Input struct {
 	Name        string
 	Slug        string
 	Description string
+	GroupRef    string
 }
 
-// Update carries partial changes; nil fields are left untouched.
+// Update carries partial changes; nil fields are left untouched. Clearing
+// the group is requested with a pointer to "".
 type Update struct {
 	Name        *string
 	Slug        *string
 	Description *string
+	GroupRef    *string
 }
 
 func normalize(in Input) (Input, error) {
@@ -61,16 +65,24 @@ func normalize(in Input) (Input, error) {
 }
 
 func snapshot(t gen.Tenant) map[string]any {
-	return map[string]any{
+	snap := map[string]any{
 		"slug":        t.Slug,
 		"name":        t.Name,
 		"description": t.Description,
 	}
+	if t.TenantGroupID != nil {
+		snap["tenant_group_id"] = t.TenantGroupID.String()
+	}
+	return snap
 }
 
 // Create makes a tenant and records it in the change log atomically.
 func (s *Service) Create(ctx context.Context, in Input) (gen.Tenant, error) {
 	in, err := normalize(in)
+	if err != nil {
+		return gen.Tenant{}, err
+	}
+	groupID, err := s.resolveGroupRef(ctx, in.GroupRef)
 	if err != nil {
 		return gen.Tenant{}, err
 	}
@@ -83,10 +95,11 @@ func (s *Service) Create(ctx context.Context, in Input) (gen.Tenant, error) {
 	q := s.q.WithTx(tx)
 
 	t, err := q.CreateTenant(ctx, gen.CreateTenantParams{
-		ID:          id.New(),
-		Slug:        in.Slug,
-		Name:        in.Name,
-		Description: in.Description,
+		ID:            id.New(),
+		Slug:          in.Slug,
+		Name:          in.Name,
+		Description:   in.Description,
+		TenantGroupID: groupID,
 	})
 	if err != nil {
 		return gen.Tenant{}, fault.FromDB(err, "tenant "+in.Slug)
@@ -118,8 +131,8 @@ func (s *Service) Count(ctx context.Context) (int64, error) {
 	return s.q.CountTenants(ctx)
 }
 
-// List returns tenants ordered by name plus the total count.
-func (s *Service) List(ctx context.Context, limit, offset int32) ([]gen.Tenant, int64, error) {
+// List returns tenants (with group display fields) plus the total count.
+func (s *Service) List(ctx context.Context, limit, offset int32) ([]gen.ListTenantsRow, int64, error) {
 	total, err := s.q.CountTenants(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("tenancy: count: %w", err)
@@ -155,6 +168,14 @@ func (s *Service) UpdateByRef(ctx context.Context, ref string, up Update) (gen.T
 		return gen.Tenant{}, err
 	}
 
+	groupID := cur.TenantGroupID
+	if up.GroupRef != nil {
+		groupID, err = s.resolveGroupRef(ctx, *up.GroupRef)
+		if err != nil {
+			return gen.Tenant{}, err
+		}
+	}
+
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return gen.Tenant{}, fmt.Errorf("tenancy: begin: %w", err)
@@ -163,10 +184,11 @@ func (s *Service) UpdateByRef(ctx context.Context, ref string, up Update) (gen.T
 	q := s.q.WithTx(tx)
 
 	t, err := q.UpdateTenant(ctx, gen.UpdateTenantParams{
-		ID:          cur.ID,
-		Slug:        next.Slug,
-		Name:        next.Name,
-		Description: next.Description,
+		ID:            cur.ID,
+		Slug:          next.Slug,
+		Name:          next.Name,
+		Description:   next.Description,
+		TenantGroupID: groupID,
 	})
 	if err != nil {
 		return gen.Tenant{}, fault.FromDB(err, "tenant "+ref)

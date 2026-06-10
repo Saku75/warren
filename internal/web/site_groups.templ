@@ -1,0 +1,156 @@
+package web
+
+import (
+	"github.com/saku75/warren/internal/core/tree"
+	"github.com/saku75/warren/internal/db/gen"
+	"github.com/saku75/warren/internal/dcim"
+)
+
+templ siteGroupKindSelect(selected string) {
+	<select name="kind">
+		for _, k := range dcim.SiteGroupKinds {
+			<option value={ k } selected?={ k == selected }>{ k }</option>
+		}
+	</select>
+}
+
+// SiteGroupsPage lists the site group tree with a create form.
+templ SiteGroupsPage(roots []*tree.Node[gen.SiteGroup], flat []tree.Flat[gen.SiteGroup], errMsg string) {
+	@Layout("Site groups", "site-groups") {
+		<header class="page-header">
+			<h1>Site groups</h1>
+		</header>
+		@SiteGroupsSection(roots, flat, errMsg)
+	}
+}
+
+templ SiteGroupsSection(roots []*tree.Node[gen.SiteGroup], flat []tree.Flat[gen.SiteGroup], errMsg string) {
+	<section id="site-groups-section">
+		@Alert(errMsg)
+		<div class="card">
+			if len(roots) == 0 {
+				<p class="empty">No site groups yet — add regions and groups below.</p>
+			} else {
+				@SiteGroupTreeList(roots)
+			}
+		</div>
+		<details class="card add-card" open?={ errMsg != "" }>
+			<summary>Add site group</summary>
+			<form
+				method="post"
+				action="/dcim/site-groups"
+				hx-post="/dcim/site-groups"
+				hx-target="#site-groups-section"
+				hx-swap="outerHTML"
+			>
+				<div class="form-grid">
+					<label>Name <input type="text" name="name" required placeholder="EMEA" data-slug-source/></label>
+					@SlugField("", false)
+					<label>Kind @siteGroupKindSelect("group")</label>
+					<label>Parent @groupSelect("parent", flat, siteGroupID, siteGroupName, "")</label>
+					<label class="span-2">Description <input type="text" name="description"/></label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create group</button>
+				</div>
+			</form>
+		</details>
+	</section>
+}
+
+templ SiteGroupTreeList(nodes []*tree.Node[gen.SiteGroup]) {
+	<ul class="loc-tree">
+		for _, n := range nodes {
+			<li>
+				<a class="obj-link" href={ templ.URL("/dcim/site-groups/" + n.Path) }>{ n.Item.Name }</a>
+				@KindChip(n.Item.Kind)
+				<code>{ n.Item.Slug }</code>
+				if len(n.Children) > 0 {
+					@SiteGroupTreeList(n.Children)
+				}
+			</li>
+		}
+	</ul>
+}
+
+// SiteGroupDetailPage shows one site group with member sites.
+templ SiteGroupDetailPage(g gen.SiteGroup, path string, children []gen.SiteGroup, members []gen.Site, errMsg string) {
+	@Layout(g.Name, "site-groups") {
+		<nav class="crumbs"><a href="/dcim/site-groups">Site groups</a> <span>/</span> <span>{ g.Name }</span></nav>
+		<header class="page-header">
+			<h1>{ g.Name } @KindChip(g.Kind)</h1>
+			<div class="page-actions">
+				<button
+					class="btn btn-ghost-danger"
+					hx-delete={ "/dcim/site-groups/" + path }
+					hx-confirm={ "Delete site group " + g.Name + "?" }
+				>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "dcim.site-group:" + path }</code></dd>
+						<dt>ID</dt><dd><code>{ g.ID.String() }</code></dd>
+						<dt>Created</dt><dd>{ g.CreatedAt.Format("2006-01-02 15:04") }</dd>
+						<dt>Updated</dt><dd>{ g.UpdatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/dcim/site-groups/" + path) }>
+						<div class="form-grid">
+							<label>Name <input type="text" name="name" value={ g.Name } required data-slug-source/></label>
+							@SlugField(g.Slug, true)
+							<label>Kind @siteGroupKindSelect(g.Kind)</label>
+							<label class="span-2">Description <input type="text" name="description" value={ g.Description }/></label>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="btn">Save changes</button>
+						</div>
+					</form>
+				</section>
+			</div>
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Child groups</h2></header>
+					if len(children) == 0 {
+						<p class="empty">No child groups.</p>
+					} else {
+						<ul class="loc-tree">
+							for _, c := range children {
+								<li>
+									<a class="obj-link" href={ templ.URL("/dcim/site-groups/" + path + "/" + c.Slug) }>{ c.Name }</a>
+									@KindChip(c.Kind)
+									<code>{ c.Slug }</code>
+								</li>
+							}
+						</ul>
+					}
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Sites in this group</h2></header>
+					if len(members) == 0 {
+						<p class="empty">No sites assigned.</p>
+					} else {
+						<table class="objects">
+							<thead><tr><th>Name</th><th>Slug</th><th>Status</th></tr></thead>
+							<tbody>
+								for _, m := range members {
+									<tr>
+										<td><a class="obj-link" href={ templ.URL("/dcim/sites/" + m.Slug) }>{ m.Name }</a></td>
+										<td><code>{ m.Slug }</code></td>
+										<td>@StatusBadge(m.Status)</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</section>
+			</div>
+		</div>
+	}
+}

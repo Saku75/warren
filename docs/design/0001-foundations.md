@@ -230,22 +230,26 @@ API + HTMX UI, with change logging and tenancy hooks from Phase 1 onward.
   kernel (`id`, `slug`, `objtype`), HTTP skeleton with probes and graceful
   shutdown, container image, design doc.
 - **Phase 1 — Platform spine + organization**: Postgres wiring (pgx +
-  sqlc), migrations with advisory lock, sessions + local auth, the change
-  log, tenants/tenant groups, site groups, sites, location tree. First
-  real test of scoped slugs and path resolution.
-- **Phase 2 — Racks & devices**: manufacturers, device types with the
+  sqlc), migrations with advisory lock, the change log, tenants + tenant
+  groups, site groups, sites, location tree. First real test of scoped
+  slugs and path resolution.
+- **Phase 2 — Auth & access**: pluggable authentication behind one
+  provider interface — local accounts (argon2id), LDAP, and OIDC SSO —
+  plus DB-backed sessions (no sticky-session requirement), CSRF, the
+  login UI, user management, and API tokens. Gets its own design doc.
+- **Phase 3 — Racks & devices**: manufacturers, device types with the
   unified component-template model, racks (elevations), devices, modules,
   inventory.
-- **Phase 3 — Connectivity**: the unified termination model, cables,
+- **Phase 4 — Connectivity**: the unified termination model, cables,
   end-to-end path tracing, power chains.
-- **Phase 4 — IPAM**: VRFs/route targets, prefixes, IP addresses, VLANs,
+- **Phase 5 — IPAM**: VRFs/route targets, prefixes, IP addresses, VLANs,
   services; interface bindings; native-`cidr` containment design doc.
-- **Phase 5 — Virtualization & circuits**: clusters, VMs, virtual
+- **Phase 6 — Virtualization & circuits**: clusters, VMs, virtual
   interfaces; providers, circuits, terminations.
-- **Phase 6 — Extensibility**: custom fields, tags (full UI), webhooks +
-  event rules on the outbox, journaling, API tokens, RBAC, export
-  templates, bulk import/export, NetBox import tooling.
-- **Phase 7 — Long tail**: wireless, VPN/tunnels, Prometheus metrics,
+- **Phase 7 — Extensibility**: custom fields, tags (full UI), webhooks +
+  event rules on the outbox, journaling, RBAC, export templates, bulk
+  import/export, NetBox import tooling.
+- **Phase 8 — Long tail**: wireless, VPN/tunnels, Prometheus metrics,
   SSE live updates, plugin story, GraphQL (only if demand proves out).
 
 ## 8. Repository layout
@@ -269,7 +273,9 @@ Deferred deliberately; none block Phase 1.
 
 - License (repo currently has none — decide before any public release).
 - CSS approach: hand-rolled design system vs Tailwind standalone CLI.
-- Auth providers beyond local accounts (OIDC is the likely first).
+- Auth provider specifics (LDAP attribute mapping, OIDC claim mapping,
+  group sync) — local + LDAP + OIDC is decided; details land in the
+  Phase 2 design doc.
 - Attachment storage: Postgres `bytea` first; S3-compatible when needed.
 - GraphQL parity with NetBox: not planned unless a concrete need appears.
 - Slug rename redirects/history.

@@ -7,6 +7,7 @@ package gen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -23,16 +24,17 @@ func (q *Queries) CountTenants(ctx context.Context) (int64, error) {
 }
 
 const createTenant = `-- name: CreateTenant :one
-INSERT INTO tenants (id, slug, name, description)
-VALUES ($1, $2, $3, $4)
-RETURNING id, slug, name, description, created_at, updated_at
+INSERT INTO tenants (id, slug, name, description, tenant_group_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, slug, name, description, created_at, updated_at, tenant_group_id
 `
 
 type CreateTenantParams struct {
-	ID          uuid.UUID
-	Slug        string
-	Name        string
-	Description string
+	ID            uuid.UUID
+	Slug          string
+	Name          string
+	Description   string
+	TenantGroupID *uuid.UUID
 }
 
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
@@ -41,6 +43,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 		arg.Slug,
 		arg.Name,
 		arg.Description,
+		arg.TenantGroupID,
 	)
 	var i Tenant
 	err := row.Scan(
@@ -50,6 +53,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantGroupID,
 	)
 	return i, err
 }
@@ -67,7 +71,7 @@ func (q *Queries) DeleteTenant(ctx context.Context, id uuid.UUID) (int64, error)
 }
 
 const getTenant = `-- name: GetTenant :one
-SELECT id, slug, name, description, created_at, updated_at FROM tenants WHERE id = $1
+SELECT id, slug, name, description, created_at, updated_at, tenant_group_id FROM tenants WHERE id = $1
 `
 
 func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
@@ -80,12 +84,13 @@ func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantGroupID,
 	)
 	return i, err
 }
 
 const getTenantBySlug = `-- name: GetTenantBySlug :one
-SELECT id, slug, name, description, created_at, updated_at FROM tenants WHERE slug = $1
+SELECT id, slug, name, description, created_at, updated_at, tenant_group_id FROM tenants WHERE slug = $1
 `
 
 func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, error) {
@@ -98,12 +103,17 @@ func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, err
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantGroupID,
 	)
 	return i, err
 }
 
 const listTenants = `-- name: ListTenants :many
-SELECT id, slug, name, description, created_at, updated_at FROM tenants ORDER BY name, id LIMIT $1 OFFSET $2
+SELECT t.id, t.slug, t.name, t.description, t.created_at, t.updated_at, t.tenant_group_id, g.slug AS group_slug, g.name AS group_name
+FROM tenants t
+LEFT JOIN tenant_groups g ON g.id = t.tenant_group_id
+ORDER BY t.name, t.id
+LIMIT $1 OFFSET $2
 `
 
 type ListTenantsParams struct {
@@ -111,15 +121,28 @@ type ListTenantsParams struct {
 	Offset int32
 }
 
-func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]Tenant, error) {
+type ListTenantsRow struct {
+	ID            uuid.UUID
+	Slug          string
+	Name          string
+	Description   string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	TenantGroupID *uuid.UUID
+	GroupSlug     *string
+	GroupName     *string
+}
+
+// Tenants with their group's display fields for lists.
+func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]ListTenantsRow, error) {
 	rows, err := q.db.Query(ctx, listTenants, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Tenant
+	var items []ListTenantsRow
 	for rows.Next() {
-		var i Tenant
+		var i ListTenantsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Slug,
@@ -127,6 +150,9 @@ func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]Ten
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TenantGroupID,
+			&i.GroupSlug,
+			&i.GroupName,
 		); err != nil {
 			return nil, err
 		}
@@ -140,16 +166,17 @@ func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]Ten
 
 const updateTenant = `-- name: UpdateTenant :one
 UPDATE tenants
-SET slug = $2, name = $3, description = $4, updated_at = now()
+SET slug = $2, name = $3, description = $4, tenant_group_id = $5, updated_at = now()
 WHERE id = $1
-RETURNING id, slug, name, description, created_at, updated_at
+RETURNING id, slug, name, description, created_at, updated_at, tenant_group_id
 `
 
 type UpdateTenantParams struct {
-	ID          uuid.UUID
-	Slug        string
-	Name        string
-	Description string
+	ID            uuid.UUID
+	Slug          string
+	Name          string
+	Description   string
+	TenantGroupID *uuid.UUID
 }
 
 func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) (Tenant, error) {
@@ -158,6 +185,7 @@ func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) (Ten
 		arg.Slug,
 		arg.Name,
 		arg.Description,
+		arg.TenantGroupID,
 	)
 	var i Tenant
 	err := row.Scan(
@@ -167,6 +195,7 @@ func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) (Ten
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TenantGroupID,
 	)
 	return i, err
 }

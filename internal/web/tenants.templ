@@ -1,35 +1,65 @@
 package web
 
-import "github.com/saku75/warren/internal/db/gen"
+import (
+	"github.com/google/uuid"
+
+	"github.com/saku75/warren/internal/core/tree"
+	"github.com/saku75/warren/internal/db/gen"
+)
+
+// groupSelect renders an indented tree select for group membership.
+templ groupSelect[T any](name string, flat []tree.Flat[T], groupID func(T) string, groupName func(T) string, selectedID string) {
+	<select name={ name }>
+		<option value="">— none —</option>
+		for _, f := range flat {
+			<option value={ groupID(f.Node.Item) } selected?={ groupID(f.Node.Item) == selectedID }>{ f.Indent() + groupName(f.Node.Item) }</option>
+		}
+	</select>
+}
+
+// tenantGroupSelect specializes groupSelect for tenant groups.
+templ tenantGroupSelect(flat []tree.Flat[gen.TenantGroup], selectedID string) {
+	@groupSelect("group", flat, tenantGroupID, tenantGroupName, selectedID)
+}
+
+func tenantGroupID(g gen.TenantGroup) string   { return g.ID.String() }
+func tenantGroupName(g gen.TenantGroup) string { return g.Name }
 
 // TenantsPage is the full tenants list page.
-templ TenantsPage(items []gen.Tenant, errMsg string) {
+templ TenantsPage(items []gen.ListTenantsRow, groups []tree.Flat[gen.TenantGroup], errMsg string) {
 	@Layout("Tenants", "tenants") {
 		<header class="page-header">
 			<h1>Tenants</h1>
 		</header>
-		@TenantsSection(items, errMsg)
+		@TenantsSection(items, groups, errMsg)
 	}
 }
 
 // TenantsSection is the swappable list + create form. UI mutations target
 // this section so htmx swaps keep the page state consistent.
-templ TenantsSection(items []gen.Tenant, errMsg string) {
+templ TenantsSection(items []gen.ListTenantsRow, groups []tree.Flat[gen.TenantGroup], errMsg string) {
 	<section id="tenants-section">
 		@Alert(errMsg)
 		<div class="card table-card">
 			<table class="objects">
 				<thead>
-					<tr><th>Name</th><th>Slug</th><th>Description</th><th></th></tr>
+					<tr><th>Name</th><th>Slug</th><th>Group</th><th>Description</th><th></th></tr>
 				</thead>
 				<tbody>
 					if len(items) == 0 {
-						<tr><td colspan="4" class="empty">No tenants yet — add the first one below.</td></tr>
+						<tr><td colspan="5" class="empty">No tenants yet — add the first one below.</td></tr>
 					}
 					for _, t := range items {
 						<tr>
 							<td><a class="obj-link" href={ templ.URL("/tenancy/tenants/" + t.Slug) }>{ t.Name }</a></td>
 							<td><code>{ t.Slug }</code></td>
+							<td>
+								if t.GroupName != nil {
+									{ *t.GroupName }
+								} else {
+									<span class="muted">—</span>
+								}
+							</td>
 							<td class="muted">{ t.Description }</td>
 							<td class="row-actions">
 								<button
@@ -57,6 +87,7 @@ templ TenantsSection(items []gen.Tenant, errMsg string) {
 				<div class="form-grid">
 					<label>Name <input type="text" name="name" required placeholder="Lund Networks" data-slug-source/></label>
 					@SlugField("", false)
+					<label>Group @tenantGroupSelect(groups, "")</label>
 					<label class="span-2">Description <input type="text" name="description"/></label>
 				</div>
 				<div class="form-actions">
@@ -67,8 +98,9 @@ templ TenantsSection(items []gen.Tenant, errMsg string) {
 	</section>
 }
 
-// TenantDetailPage shows and edits one tenant.
-templ TenantDetailPage(t gen.Tenant, errMsg string) {
+// TenantDetailPage shows and edits one tenant. groupPath/groupName are
+// empty when the tenant has no group.
+templ TenantDetailPage(t gen.Tenant, groupPath string, groupName string, groups []tree.Flat[gen.TenantGroup], errMsg string) {
 	@Layout(t.Name, "tenants") {
 		<nav class="crumbs"><a href="/tenancy/tenants">Tenants</a> <span>/</span> <span>{ t.Name }</span></nav>
 		<header class="page-header">
@@ -88,6 +120,9 @@ templ TenantDetailPage(t gen.Tenant, errMsg string) {
 				<dl class="facts">
 					<dt>Reference</dt><dd><code>{ "tenancy.tenant:" + t.Slug }</code></dd>
 					<dt>ID</dt><dd><code>{ t.ID.String() }</code></dd>
+					if groupPath != "" {
+						<dt>Group</dt><dd><a href={ templ.URL("/tenancy/tenant-groups/" + groupPath) }>{ groupName }</a></dd>
+					}
 					<dt>Created</dt><dd>{ t.CreatedAt.Format("2006-01-02 15:04") }</dd>
 					<dt>Updated</dt><dd>{ t.UpdatedAt.Format("2006-01-02 15:04") }</dd>
 				</dl>
@@ -98,6 +133,7 @@ templ TenantDetailPage(t gen.Tenant, errMsg string) {
 					<div class="form-grid">
 						<label>Name <input type="text" name="name" value={ t.Name } required data-slug-source/></label>
 						@SlugField(t.Slug, true)
+						<label>Group @tenantGroupSelect(groups, derefID(t.TenantGroupID))</label>
 						<label class="span-2">Description <input type="text" name="description" value={ t.Description }/></label>
 					</div>
 					<div class="form-actions">
@@ -107,4 +143,148 @@ templ TenantDetailPage(t gen.Tenant, errMsg string) {
 			</section>
 		</div>
 	}
+}
+
+// TenantGroupsPage lists the tenant group tree with a create form.
+templ TenantGroupsPage(roots []*tree.Node[gen.TenantGroup], flat []tree.Flat[gen.TenantGroup], errMsg string) {
+	@Layout("Tenant groups", "tenant-groups") {
+		<header class="page-header">
+			<h1>Tenant groups</h1>
+		</header>
+		@TenantGroupsSection(roots, flat, errMsg)
+	}
+}
+
+templ TenantGroupsSection(roots []*tree.Node[gen.TenantGroup], flat []tree.Flat[gen.TenantGroup], errMsg string) {
+	<section id="tenant-groups-section">
+		@Alert(errMsg)
+		<div class="card">
+			if len(roots) == 0 {
+				<p class="empty">No tenant groups yet — add the first one below.</p>
+			} else {
+				@TenantGroupTreeList(roots)
+			}
+		</div>
+		<details class="card add-card" open?={ errMsg != "" }>
+			<summary>Add tenant group</summary>
+			<form
+				method="post"
+				action="/tenancy/tenant-groups"
+				hx-post="/tenancy/tenant-groups"
+				hx-target="#tenant-groups-section"
+				hx-swap="outerHTML"
+			>
+				<div class="form-grid">
+					<label>Name <input type="text" name="name" required placeholder="EMEA" data-slug-source/></label>
+					@SlugField("", false)
+					<label>Parent @groupSelect("parent", flat, tenantGroupID, tenantGroupName, "")</label>
+					<label class="span-2">Description <input type="text" name="description"/></label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create group</button>
+				</div>
+			</form>
+		</details>
+	</section>
+}
+
+templ TenantGroupTreeList(nodes []*tree.Node[gen.TenantGroup]) {
+	<ul class="loc-tree">
+		for _, n := range nodes {
+			<li>
+				<a class="obj-link" href={ templ.URL("/tenancy/tenant-groups/" + n.Path) }>{ n.Item.Name }</a>
+				<code>{ n.Item.Slug }</code>
+				if len(n.Children) > 0 {
+					@TenantGroupTreeList(n.Children)
+				}
+			</li>
+		}
+	</ul>
+}
+
+// TenantGroupDetailPage shows one tenant group with members.
+templ TenantGroupDetailPage(g gen.TenantGroup, path string, children []gen.TenantGroup, members []gen.Tenant, errMsg string) {
+	@Layout(g.Name, "tenant-groups") {
+		<nav class="crumbs"><a href="/tenancy/tenant-groups">Tenant groups</a> <span>/</span> <span>{ g.Name }</span></nav>
+		<header class="page-header">
+			<h1>{ g.Name }</h1>
+			<div class="page-actions">
+				<button
+					class="btn btn-ghost-danger"
+					hx-delete={ "/tenancy/tenant-groups/" + path }
+					hx-confirm={ "Delete tenant group " + g.Name + "?" }
+				>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "tenancy.tenant-group:" + path }</code></dd>
+						<dt>ID</dt><dd><code>{ g.ID.String() }</code></dd>
+						<dt>Created</dt><dd>{ g.CreatedAt.Format("2006-01-02 15:04") }</dd>
+						<dt>Updated</dt><dd>{ g.UpdatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/tenancy/tenant-groups/" + path) }>
+						<div class="form-grid">
+							<label>Name <input type="text" name="name" value={ g.Name } required data-slug-source/></label>
+							@SlugField(g.Slug, true)
+							<label class="span-2">Description <input type="text" name="description" value={ g.Description }/></label>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="btn">Save changes</button>
+						</div>
+					</form>
+				</section>
+			</div>
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Child groups</h2></header>
+					if len(children) == 0 {
+						<p class="empty">No child groups.</p>
+					} else {
+						<ul class="loc-tree">
+							for _, c := range children {
+								<li>
+									<a class="obj-link" href={ templ.URL("/tenancy/tenant-groups/" + path + "/" + c.Slug) }>{ c.Name }</a>
+									<code>{ c.Slug }</code>
+								</li>
+							}
+						</ul>
+					}
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Tenants in this group</h2></header>
+					if len(members) == 0 {
+						<p class="empty">No tenants assigned.</p>
+					} else {
+						<table class="objects">
+							<thead><tr><th>Name</th><th>Slug</th></tr></thead>
+							<tbody>
+								for _, m := range members {
+									<tr>
+										<td><a class="obj-link" href={ templ.URL("/tenancy/tenants/" + m.Slug) }>{ m.Name }</a></td>
+										<td><code>{ m.Slug }</code></td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</section>
+			</div>
+		</div>
+	}
+}
+
+// derefID renders an optional object reference for select pre-selection.
+func derefID(p *uuid.UUID) string {
+	if p == nil {
+		return ""
+	}
+	return p.String()
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/saku75/warren/internal/core/fault"
 	"github.com/saku75/warren/internal/core/id"
 	"github.com/saku75/warren/internal/core/slug"
+	"github.com/saku75/warren/internal/core/tree"
 	"github.com/saku75/warren/internal/db/gen"
 )
 
@@ -349,16 +350,9 @@ func (s *Service) LocationChildren(ctx context.Context, locationID id.ID) ([]gen
 	return items, nil
 }
 
-// LocationNode is a location with its children, for tree rendering.
-type LocationNode struct {
-	Location gen.Location
-	// Path is the full slug path including the site slug.
-	Path     string
-	Children []*LocationNode
-}
-
-// LocationTree assembles the site's location tree (roots ordered by name).
-func (s *Service) LocationTree(ctx context.Context, siteID id.ID) ([]*LocationNode, error) {
+// LocationTree assembles the site's location tree (roots ordered by name,
+// paths prefixed with the site slug).
+func (s *Service) LocationTree(ctx context.Context, siteID id.ID) ([]*tree.Node[gen.Location], error) {
 	site, err := s.q.GetSite(ctx, siteID)
 	if err != nil {
 		return nil, fault.FromDB(err, "site")
@@ -367,32 +361,10 @@ func (s *Service) LocationTree(ctx context.Context, siteID id.ID) ([]*LocationNo
 	if err != nil {
 		return nil, fmt.Errorf("dcim: list locations: %w", err)
 	}
-
-	nodes := make(map[id.ID]*LocationNode, len(all))
-	for _, l := range all {
-		nodes[l.ID] = &LocationNode{Location: l}
-	}
-	var roots []*LocationNode
-	for _, l := range all {
-		n := nodes[l.ID]
-		if l.ParentID == nil {
-			n.Path = site.Slug + "/" + l.Slug
-			roots = append(roots, n)
-		} else {
-			nodes[*l.ParentID].Children = append(nodes[*l.ParentID].Children, n)
-		}
-	}
-	// Children inherit their path from the parent; rows arrive name-sorted,
-	// so a breadth-first fill keeps every level ordered.
-	var fill func(n *LocationNode)
-	fill = func(n *LocationNode) {
-		for _, c := range n.Children {
-			c.Path = n.Path + "/" + c.Location.Slug
-			fill(c)
-		}
-	}
-	for _, r := range roots {
-		fill(r)
-	}
-	return roots, nil
+	return tree.Build(all,
+		func(l gen.Location) id.ID { return l.ID },
+		func(l gen.Location) *id.ID { return l.ParentID },
+		func(l gen.Location) string { return l.Slug },
+		site.Slug+"/",
+	), nil
 }

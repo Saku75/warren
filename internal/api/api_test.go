@@ -198,3 +198,96 @@ func TestAPIEndToEnd(t *testing.T) {
 		t.Fatalf("not found shape: %d %v", status, body)
 	}
 }
+
+func TestAPIGroups(t *testing.T) {
+	srv := testServer(t)
+
+	// Site group hierarchy: region root with nested group.
+	regionSlug := uniq("emea")
+	status, body := call(t, srv, "POST", "/dcim/site-groups", map[string]string{
+		"name": "EMEA", "slug": regionSlug, "kind": "region",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create region: %d %v", status, body)
+	}
+	status, body = call(t, srv, "POST", "/dcim/site-groups", map[string]string{
+		"name": "Colo", "slug": "colo", "parent": regionSlug,
+	})
+	if status != http.StatusCreated || body["slug_path"] != regionSlug+"/colo" {
+		t.Fatalf("create nested group: %d %v", status, body)
+	}
+	parent, _ := body["parent"].(map[string]any)
+	if parent == nil || parent["slug"] != regionSlug {
+		t.Fatalf("nested group parent wrong: %v", body)
+	}
+
+	// Resolve by path, list as tree.
+	status, body = call(t, srv, "GET", "/dcim/site-groups/"+regionSlug+"/colo", nil)
+	if status != http.StatusOK || body["kind"] != "group" {
+		t.Fatalf("get by path: %d %v", status, body)
+	}
+	status, body = call(t, srv, "GET", "/dcim/site-groups", nil)
+	if status != http.StatusOK {
+		t.Fatalf("list groups: %d %v", status, body)
+	}
+
+	// Tenant group + tenant membership via API.
+	tgSlug := uniq("holdings")
+	status, _ = call(t, srv, "POST", "/tenancy/tenant-groups", map[string]string{
+		"name": "Holdings", "slug": tgSlug,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create tenant group: %d", status)
+	}
+	tenantSlug := uniq("sub")
+	status, body = call(t, srv, "POST", "/tenancy/tenants", map[string]string{
+		"name": "Subsidiary", "slug": tenantSlug, "group": tgSlug,
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create tenant in group: %d %v", status, body)
+	}
+	group, _ := body["group"].(map[string]any)
+	if group == nil || group["slug"] != tgSlug {
+		t.Fatalf("tenant group rep wrong: %v", body)
+	}
+
+	// Site joins the nested group by path.
+	siteSlug := uniq("dc")
+	status, body = call(t, srv, "POST", "/dcim/sites", map[string]string{
+		"name": "DC", "slug": siteSlug, "group": regionSlug + "/colo",
+	})
+	if status != http.StatusCreated {
+		t.Fatalf("create site in group: %d %v", status, body)
+	}
+	group, _ = body["group"].(map[string]any)
+	if group == nil || group["slug"] != "colo" {
+		t.Fatalf("site group rep wrong: %v", body)
+	}
+
+	// Cycle via PATCH is rejected.
+	status, body = call(t, srv, "PATCH", "/dcim/site-groups/"+regionSlug, map[string]string{
+		"parent": regionSlug + "/colo",
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("cycle: %d %v", status, body)
+	}
+
+	// Delete blocked while a site is in the group.
+	status, body = call(t, srv, "DELETE", "/dcim/site-groups/"+regionSlug+"/colo", nil)
+	if status != http.StatusConflict {
+		t.Fatalf("delete group with site: %d %v", status, body)
+	}
+
+	// Cleanup: site, groups, tenant, tenant group.
+	for _, del := range []string{
+		"/dcim/sites/" + siteSlug,
+		"/dcim/site-groups/" + regionSlug + "/colo",
+		"/dcim/site-groups/" + regionSlug,
+		"/tenancy/tenants/" + tenantSlug,
+		"/tenancy/tenant-groups/" + tgSlug,
+	} {
+		if status, body = call(t, srv, "DELETE", del, nil); status != http.StatusNoContent {
+			t.Fatalf("cleanup %s: %d %v", del, status, body)
+		}
+	}
+}

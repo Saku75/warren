@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -44,6 +45,23 @@ func (h *Handler) Routes() chi.Router {
 		r.Get("/{ref}", h.getTenant)
 		r.Patch("/{ref}", h.updateTenant)
 		r.Delete("/{ref}", h.deleteTenant)
+	})
+
+	// Group refs are slug paths ("emea/dk"), so these use wildcards.
+	r.Route("/tenancy/tenant-groups", func(r chi.Router) {
+		r.Get("/", h.listTenantGroups)
+		r.Post("/", h.createTenantGroup)
+		r.Get("/*", h.getTenantGroup)
+		r.Patch("/*", h.updateTenantGroup)
+		r.Delete("/*", h.deleteTenantGroup)
+	})
+
+	r.Route("/dcim/site-groups", func(r chi.Router) {
+		r.Get("/", h.listSiteGroups)
+		r.Post("/", h.createSiteGroup)
+		r.Get("/*", h.getSiteGroup)
+		r.Patch("/*", h.updateSiteGroup)
+		r.Delete("/*", h.deleteSiteGroup)
 	})
 
 	r.Route("/dcim/sites", func(r chi.Router) {
@@ -128,6 +146,12 @@ func (h *Handler) decode(r *http.Request, v any) error {
 		return fault.Wrap(fault.Invalid, err, "malformed JSON body")
 	}
 	return nil
+}
+
+// wildcard pulls the trailing path reference from a wildcard route
+// (a UUID or a slug path).
+func wildcard(r *http.Request) string {
+	return strings.Trim(chi.URLParam(r, "*"), "/")
 }
 
 // pagination reads limit/offset with sane bounds.
