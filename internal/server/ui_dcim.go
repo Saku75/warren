@@ -27,24 +27,16 @@ func (u *uiHandler) sitesPage(w http.ResponseWriter, r *http.Request) {
 // section.
 func (u *uiHandler) renderSites(w http.ResponseWriter, r *http.Request, status int, errMsg string, fullPage bool) {
 	sites, _, err := u.dcim.ListSites(r.Context(), uiListLimit, 0)
-	if err == nil {
-		var tenants []gen.ListTenantsRow
-		tenants, _, err = u.tenancy.List(r.Context(), uiListLimit, 0)
-		if err == nil {
-			var groups []tree.Flat[gen.SiteGroup]
-			groups, err = u.siteGroupsFlat(r)
-			if err == nil {
-				if fullPage {
-					u.render(w, r, status, web.SitesPage(sites, tenants, groups, errMsg))
-				} else {
-					u.render(w, r, status, web.SitesSection(sites, tenants, groups, errMsg))
-				}
-				return
-			}
-		}
+	if err != nil {
+		st, msg := u.fail(r, err)
+		u.render(w, r, st, web.ErrorPage(msg))
+		return
 	}
-	st, msg := u.fail(r, err)
-	u.render(w, r, st, web.ErrorPage(msg))
+	if fullPage {
+		u.render(w, r, status, web.SitesPage(sites, errMsg))
+	} else {
+		u.render(w, r, status, web.SitesSection(sites, errMsg))
+	}
 }
 
 func siteInputFromForm(r *http.Request) dcim.SiteInput {
@@ -60,20 +52,35 @@ func siteInputFromForm(r *http.Request) dcim.SiteInput {
 	}
 }
 
-func (u *uiHandler) createSite(w http.ResponseWriter, r *http.Request) {
-	_, err := u.dcim.CreateSite(r.Context(), siteInputFromForm(r))
-	switch {
-	case isHX(r) && err == nil:
-		u.renderSites(w, r, http.StatusOK, "", false)
-	case isHX(r):
-		_, msg := u.fail(r, err)
-		u.renderSites(w, r, http.StatusOK, msg, false)
-	case err == nil:
-		http.Redirect(w, r, "/dcim/sites", http.StatusSeeOther)
-	default:
-		status, msg := u.fail(r, err)
-		u.renderSites(w, r, status, msg, true)
+// renderSiteForm shows the create form, optionally with an error and the
+// submitted values preserved.
+func (u *uiHandler) renderSiteForm(w http.ResponseWriter, r *http.Request, status int, in dcim.SiteInput, errMsg string) {
+	tenants, _, err := u.tenancy.List(r.Context(), uiListLimit, 0)
+	if err == nil {
+		var groups []tree.Flat[gen.SiteGroup]
+		groups, err = u.siteGroupsFlat(r)
+		if err == nil {
+			u.render(w, r, status, web.SiteFormPage(in, tenants, groups, errMsg))
+			return
+		}
 	}
+	st, msg := u.fail(r, err)
+	u.render(w, r, st, web.ErrorPage(msg))
+}
+
+func (u *uiHandler) siteFormPage(w http.ResponseWriter, r *http.Request) {
+	u.renderSiteForm(w, r, http.StatusOK, dcim.SiteInput{Status: "active"}, "")
+}
+
+func (u *uiHandler) createSite(w http.ResponseWriter, r *http.Request) {
+	in := siteInputFromForm(r)
+	site, err := u.dcim.CreateSite(r.Context(), in)
+	if err != nil {
+		status, msg := u.fail(r, err)
+		u.renderSiteForm(w, r, status, in, msg)
+		return
+	}
+	http.Redirect(w, r, "/dcim/sites/"+site.Slug, http.StatusSeeOther)
 }
 
 // renderSiteDetail gathers everything the site page needs.
@@ -99,7 +106,7 @@ func (u *uiHandler) renderSiteDetail(w http.ResponseWriter, r *http.Request, sta
 			var locTree []*tree.Node[gen.Location]
 			locTree, err = u.dcim.LocationTree(r.Context(), site.ID)
 			if err == nil {
-				u.render(w, r, status, web.SiteDetailPage(site, tenantSlug, tenants, groupPath, groupName, groups, locTree, tree.Flatten(locTree), errMsg))
+				u.render(w, r, status, web.SiteDetailPage(site, tenantSlug, tenants, groupPath, groupName, groups, locTree, errMsg))
 				return
 			}
 		}
@@ -165,9 +172,10 @@ func (u *uiHandler) deleteSite(w http.ResponseWriter, r *http.Request) {
 	hxRedirect(w, "/dcim/sites", "")
 }
 
-func (u *uiHandler) createLocation(w http.ResponseWriter, r *http.Request) {
-	siteRef := chi.URLParam(r, "ref")
-	_, err := u.dcim.CreateLocation(r.Context(), dcim.LocationInput{
+// --- locations ---
+
+func locationInputFromForm(r *http.Request, siteRef string) dcim.LocationInput {
+	return dcim.LocationInput{
 		SiteRef:     siteRef,
 		ParentRef:   formValue(r, "parent"),
 		Name:        formValue(r, "name"),
@@ -176,19 +184,45 @@ func (u *uiHandler) createLocation(w http.ResponseWriter, r *http.Request) {
 		Status:      formValue(r, "status"),
 		TenantRef:   formValue(r, "tenant"),
 		Description: formValue(r, "description"),
-	})
+	}
+}
+
+// renderLocationForm shows the create form for a location within a site.
+func (u *uiHandler) renderLocationForm(w http.ResponseWriter, r *http.Request, status int, site gen.Site, in dcim.LocationInput, errMsg string) {
+	locTree, err := u.dcim.LocationTree(r.Context(), site.ID)
 	if err != nil {
-		status, msg := u.fail(r, err)
-		site, gerr := u.dcim.GetSiteByRef(r.Context(), siteRef)
-		if gerr != nil {
-			status, msg = u.fail(r, gerr)
-			u.render(w, r, status, web.ErrorPage(msg))
-			return
-		}
-		u.renderSiteDetail(w, r, status, site, msg)
+		st, msg := u.fail(r, err)
+		u.render(w, r, st, web.ErrorPage(msg))
 		return
 	}
-	http.Redirect(w, r, "/dcim/sites/"+siteRef, http.StatusSeeOther)
+	u.render(w, r, status, web.LocationFormPage(site, in, tree.Flatten(locTree), errMsg))
+}
+
+func (u *uiHandler) locationFormPage(w http.ResponseWriter, r *http.Request) {
+	site, err := u.dcim.GetSiteByRef(r.Context(), chi.URLParam(r, "ref"))
+	if err != nil {
+		status, msg := u.fail(r, err)
+		u.render(w, r, status, web.ErrorPage(msg))
+		return
+	}
+	u.renderLocationForm(w, r, http.StatusOK, site, dcim.LocationInput{Kind: "area", Status: "active"}, "")
+}
+
+func (u *uiHandler) createLocation(w http.ResponseWriter, r *http.Request) {
+	siteRef := chi.URLParam(r, "ref")
+	site, err := u.dcim.GetSiteByRef(r.Context(), siteRef)
+	if err != nil {
+		status, msg := u.fail(r, err)
+		u.render(w, r, status, web.ErrorPage(msg))
+		return
+	}
+	in := locationInputFromForm(r, siteRef)
+	if _, err := u.dcim.CreateLocation(r.Context(), in); err != nil {
+		status, msg := u.fail(r, err)
+		u.renderLocationForm(w, r, status, site, in, msg)
+		return
+	}
+	http.Redirect(w, r, "/dcim/sites/"+site.Slug, http.StatusSeeOther)
 }
 
 func (u *uiHandler) locationDetail(w http.ResponseWriter, r *http.Request) {
@@ -285,34 +319,51 @@ func (u *uiHandler) renderSiteGroups(w http.ResponseWriter, r *http.Request, sta
 		u.render(w, r, st, web.ErrorPage(msg))
 		return
 	}
-	flat := tree.Flatten(roots)
 	if fullPage {
-		u.render(w, r, status, web.SiteGroupsPage(roots, flat, errMsg))
+		u.render(w, r, status, web.SiteGroupsPage(roots, errMsg))
 	} else {
-		u.render(w, r, status, web.SiteGroupsSection(roots, flat, errMsg))
+		u.render(w, r, status, web.SiteGroupsSection(roots, errMsg))
 	}
 }
 
-func (u *uiHandler) createSiteGroup(w http.ResponseWriter, r *http.Request) {
-	_, err := u.dcim.CreateSiteGroup(r.Context(), dcim.SiteGroupInput{
+func siteGroupInputFromForm(r *http.Request) dcim.SiteGroupInput {
+	return dcim.SiteGroupInput{
 		Name:        formValue(r, "name"),
 		Slug:        formValue(r, "slug"),
 		Kind:        formValue(r, "kind"),
 		ParentRef:   formValue(r, "parent"),
 		Description: formValue(r, "description"),
-	})
-	switch {
-	case isHX(r) && err == nil:
-		u.renderSiteGroups(w, r, http.StatusOK, "", false)
-	case isHX(r):
-		_, msg := u.fail(r, err)
-		u.renderSiteGroups(w, r, http.StatusOK, msg, false)
-	case err == nil:
-		http.Redirect(w, r, "/dcim/site-groups", http.StatusSeeOther)
-	default:
-		status, msg := u.fail(r, err)
-		u.renderSiteGroups(w, r, status, msg, true)
 	}
+}
+
+func (u *uiHandler) renderSiteGroupForm(w http.ResponseWriter, r *http.Request, status int, in dcim.SiteGroupInput, errMsg string) {
+	groups, err := u.siteGroupsFlat(r)
+	if err != nil {
+		st, msg := u.fail(r, err)
+		u.render(w, r, st, web.ErrorPage(msg))
+		return
+	}
+	u.render(w, r, status, web.SiteGroupFormPage(in, groups, errMsg))
+}
+
+func (u *uiHandler) siteGroupFormPage(w http.ResponseWriter, r *http.Request) {
+	u.renderSiteGroupForm(w, r, http.StatusOK, dcim.SiteGroupInput{Kind: "group"}, "")
+}
+
+func (u *uiHandler) createSiteGroup(w http.ResponseWriter, r *http.Request) {
+	in := siteGroupInputFromForm(r)
+	g, err := u.dcim.CreateSiteGroup(r.Context(), in)
+	if err != nil {
+		status, msg := u.fail(r, err)
+		u.renderSiteGroupForm(w, r, status, in, msg)
+		return
+	}
+	path, err := u.dcim.SiteGroupPath(r.Context(), g.ID)
+	if err != nil {
+		http.Redirect(w, r, "/dcim/site-groups", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/dcim/site-groups/"+path, http.StatusSeeOther)
 }
 
 func (u *uiHandler) siteGroupDetail(w http.ResponseWriter, r *http.Request) {

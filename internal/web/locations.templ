@@ -1,6 +1,62 @@
 package web
 
-import "github.com/saku75/warren/internal/db/gen"
+import (
+	"github.com/saku75/warren/internal/core/tree"
+	"github.com/saku75/warren/internal/db/gen"
+	"github.com/saku75/warren/internal/dcim"
+)
+
+// LocationFormPage is the standalone create form for a location within
+// site. in carries submitted values back when validation fails.
+templ LocationFormPage(site gen.Site, in dcim.LocationInput, flat []tree.Flat[gen.Location], errMsg string) {
+	@Layout("Add location", "sites") {
+		<nav class="crumbs">
+			<a href="/dcim/sites">Sites</a> <span>/</span>
+			<a href={ templ.URL("/dcim/sites/" + site.Slug) }>{ site.Name }</a> <span>/</span>
+			<span>Add location</span>
+		</nav>
+		<header class="page-header">
+			<h1>Add location to { site.Name }</h1>
+		</header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug + "/locations") }>
+				<div class="form-grid">
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="Building A" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Kind
+						@kindSelect(in.Kind)
+					</label>
+					<label>
+						Status
+						@statusSelect(in.Status)
+					</label>
+					<label>
+						Parent
+						<select name="parent">
+							<option value="">— site root —</option>
+							for _, f := range flat {
+								<option value={ f.Node.Item.ID.String() } selected?={ f.Node.Item.ID.String() == in.ParentRef }>{ f.Indent() + f.Node.Item.Name }</option>
+							}
+						</select>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create location</button>
+					<a class="btn btn-ghost" href={ templ.URL("/dcim/sites/" + site.Slug) }>Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
 
 // LocationDetailPage shows one location with its children.
 templ LocationDetailPage(loc gen.Location, path string, site gen.Site, children []gen.Location, errMsg string) {
@@ -11,7 +67,11 @@ templ LocationDetailPage(loc gen.Location, path string, site gen.Site, children 
 			<span>{ loc.Name }</span>
 		</nav>
 		<header class="page-header">
-			<h1>{ loc.Name } @KindChip(loc.Kind) @StatusBadge(loc.Status)</h1>
+			<h1>
+				{ loc.Name }
+				@KindChip(loc.Kind)
+				@StatusBadge(loc.Status)
+			</h1>
 			<div class="page-actions">
 				<button
 					class="btn btn-ghost-danger"
@@ -37,11 +97,23 @@ templ LocationDetailPage(loc gen.Location, path string, site gen.Site, children 
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/locations/" + path) }>
 						<div class="form-grid">
-							<label>Name <input type="text" name="name" value={ loc.Name } required data-slug-source/></label>
+							<label>
+								Name
+								<input type="text" name="name" value={ loc.Name } required data-slug-source/>
+							</label>
 							@SlugField(loc.Slug, true)
-							<label>Kind @kindSelect(loc.Kind)</label>
-							<label>Status @statusSelect(loc.Status)</label>
-							<label class="span-2">Description <input type="text" name="description" value={ loc.Description }/></label>
+							<label>
+								Kind
+								@kindSelect(loc.Kind)
+							</label>
+							<label>
+								Status
+								@statusSelect(loc.Status)
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ loc.Description }/>
+							</label>
 						</div>
 						<div class="form-actions">
 							<button type="submit" class="btn">Save changes</button>

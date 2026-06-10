@@ -10,10 +10,11 @@ long-standing quirks (identifier sprawl, globally-unique slugs, duplicated
 component models). It is built from day one to run as stateless container
 replicas with PostgreSQL as the only stateful service.
 
-**Status: Phase 1 — organization (complete).** Working now: tenants and
-tenant groups, sites and site groups (one nestable tree with region/group
+**Status: Phase 1 — organization (complete).** Working now: hierarchical
+tenants (a tenant can have a parent tenant, and every level is directly
+assignable), sites and site groups (one nestable tree with region/group
 kinds, replacing NetBox's Region + SiteGroup split), nested location
-trees — all with scoped slugs and path addressing; a change log written
+trees with scoped slugs and path addressing; a change log written
 transactionally with every mutation; the REST API and HTMX UI for all of
 it; advisory-locked schema migrations; readiness gating on schema
 currency. Next: Phase 2 — auth & access (local, LDAP, OIDC SSO). See the

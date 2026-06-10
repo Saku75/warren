@@ -231,24 +231,33 @@ func TestAPIGroups(t *testing.T) {
 		t.Fatalf("list groups: %d %v", status, body)
 	}
 
-	// Tenant group + tenant membership via API.
-	tgSlug := uniq("holdings")
-	status, _ = call(t, srv, "POST", "/tenancy/tenant-groups", map[string]string{
-		"name": "Holdings", "slug": tgSlug,
+	// Hierarchical tenants: child references parent by slug; the parent
+	// stays directly assignable itself.
+	holdingSlug := uniq("holdings")
+	status, _ = call(t, srv, "POST", "/tenancy/tenants", map[string]string{
+		"name": "Holdings", "slug": holdingSlug,
 	})
 	if status != http.StatusCreated {
-		t.Fatalf("create tenant group: %d", status)
+		t.Fatalf("create parent tenant: %d", status)
 	}
 	tenantSlug := uniq("sub")
 	status, body = call(t, srv, "POST", "/tenancy/tenants", map[string]string{
-		"name": "Subsidiary", "slug": tenantSlug, "group": tgSlug,
+		"name": "Subsidiary", "slug": tenantSlug, "parent": holdingSlug,
 	})
 	if status != http.StatusCreated {
-		t.Fatalf("create tenant in group: %d %v", status, body)
+		t.Fatalf("create child tenant: %d %v", status, body)
 	}
-	group, _ := body["group"].(map[string]any)
-	if group == nil || group["slug"] != tgSlug {
-		t.Fatalf("tenant group rep wrong: %v", body)
+	tparent, _ := body["parent"].(map[string]any)
+	if tparent == nil || tparent["slug"] != holdingSlug {
+		t.Fatalf("tenant parent rep wrong: %v", body)
+	}
+
+	// Reparent cycle via PATCH is rejected.
+	status, body = call(t, srv, "PATCH", "/tenancy/tenants/"+holdingSlug, map[string]string{
+		"parent": tenantSlug,
+	})
+	if status != http.StatusBadRequest {
+		t.Fatalf("tenant cycle: %d %v", status, body)
 	}
 
 	// Site joins the nested group by path.
@@ -259,7 +268,7 @@ func TestAPIGroups(t *testing.T) {
 	if status != http.StatusCreated {
 		t.Fatalf("create site in group: %d %v", status, body)
 	}
-	group, _ = body["group"].(map[string]any)
+	group, _ := body["group"].(map[string]any)
 	if group == nil || group["slug"] != "colo" {
 		t.Fatalf("site group rep wrong: %v", body)
 	}
@@ -278,13 +287,13 @@ func TestAPIGroups(t *testing.T) {
 		t.Fatalf("delete group with site: %d %v", status, body)
 	}
 
-	// Cleanup: site, groups, tenant, tenant group.
+	// Cleanup: site, groups, child tenant, then parent tenant.
 	for _, del := range []string{
 		"/dcim/sites/" + siteSlug,
 		"/dcim/site-groups/" + regionSlug + "/colo",
 		"/dcim/site-groups/" + regionSlug,
 		"/tenancy/tenants/" + tenantSlug,
-		"/tenancy/tenant-groups/" + tgSlug,
+		"/tenancy/tenants/" + holdingSlug,
 	} {
 		if status, body = call(t, srv, "DELETE", del, nil); status != http.StatusNoContent {
 			t.Fatalf("cleanup %s: %d %v", del, status, body)

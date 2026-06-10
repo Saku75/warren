@@ -24,26 +24,26 @@ func (q *Queries) CountTenants(ctx context.Context) (int64, error) {
 }
 
 const createTenant = `-- name: CreateTenant :one
-INSERT INTO tenants (id, slug, name, description, tenant_group_id)
+INSERT INTO tenants (id, parent_id, slug, name, description)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, slug, name, description, created_at, updated_at, tenant_group_id
+RETURNING id, slug, name, description, created_at, updated_at, parent_id
 `
 
 type CreateTenantParams struct {
-	ID            uuid.UUID
-	Slug          string
-	Name          string
-	Description   string
-	TenantGroupID *uuid.UUID
+	ID          uuid.UUID
+	ParentID    *uuid.UUID
+	Slug        string
+	Name        string
+	Description string
 }
 
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
 	row := q.db.QueryRow(ctx, createTenant,
 		arg.ID,
+		arg.ParentID,
 		arg.Slug,
 		arg.Name,
 		arg.Description,
-		arg.TenantGroupID,
 	)
 	var i Tenant
 	err := row.Scan(
@@ -53,7 +53,7 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TenantGroupID,
+		&i.ParentID,
 	)
 	return i, err
 }
@@ -71,7 +71,7 @@ func (q *Queries) DeleteTenant(ctx context.Context, id uuid.UUID) (int64, error)
 }
 
 const getTenant = `-- name: GetTenant :one
-SELECT id, slug, name, description, created_at, updated_at, tenant_group_id FROM tenants WHERE id = $1
+SELECT id, slug, name, description, created_at, updated_at, parent_id FROM tenants WHERE id = $1
 `
 
 func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
@@ -84,13 +84,13 @@ func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TenantGroupID,
+		&i.ParentID,
 	)
 	return i, err
 }
 
 const getTenantBySlug = `-- name: GetTenantBySlug :one
-SELECT id, slug, name, description, created_at, updated_at, tenant_group_id FROM tenants WHERE slug = $1
+SELECT id, slug, name, description, created_at, updated_at, parent_id FROM tenants WHERE slug = $1
 `
 
 func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, error) {
@@ -103,15 +103,47 @@ func (q *Queries) GetTenantBySlug(ctx context.Context, slug string) (Tenant, err
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TenantGroupID,
+		&i.ParentID,
 	)
 	return i, err
 }
 
+const listTenantChildren = `-- name: ListTenantChildren :many
+SELECT id, slug, name, description, created_at, updated_at, parent_id FROM tenants WHERE parent_id = $1 ORDER BY name, id
+`
+
+func (q *Queries) ListTenantChildren(ctx context.Context, parentID *uuid.UUID) ([]Tenant, error) {
+	rows, err := q.db.Query(ctx, listTenantChildren, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tenant
+	for rows.Next() {
+		var i Tenant
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTenants = `-- name: ListTenants :many
-SELECT t.id, t.slug, t.name, t.description, t.created_at, t.updated_at, t.tenant_group_id, g.slug AS group_slug, g.name AS group_name
+SELECT t.id, t.slug, t.name, t.description, t.created_at, t.updated_at, t.parent_id, p.slug AS parent_slug, p.name AS parent_name
 FROM tenants t
-LEFT JOIN tenant_groups g ON g.id = t.tenant_group_id
+LEFT JOIN tenants p ON p.id = t.parent_id
 ORDER BY t.name, t.id
 LIMIT $1 OFFSET $2
 `
@@ -122,18 +154,18 @@ type ListTenantsParams struct {
 }
 
 type ListTenantsRow struct {
-	ID            uuid.UUID
-	Slug          string
-	Name          string
-	Description   string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	TenantGroupID *uuid.UUID
-	GroupSlug     *string
-	GroupName     *string
+	ID          uuid.UUID
+	Slug        string
+	Name        string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	ParentID    *uuid.UUID
+	ParentSlug  *string
+	ParentName  *string
 }
 
-// Tenants with their group's display fields for lists.
+// Tenants with their parent's display fields for lists.
 func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]ListTenantsRow, error) {
 	rows, err := q.db.Query(ctx, listTenants, arg.Limit, arg.Offset)
 	if err != nil {
@@ -150,9 +182,42 @@ func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]Lis
 			&i.Description,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.TenantGroupID,
-			&i.GroupSlug,
-			&i.GroupName,
+			&i.ParentID,
+			&i.ParentSlug,
+			&i.ParentName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantsTree = `-- name: ListTenantsTree :many
+SELECT id, slug, name, description, created_at, updated_at, parent_id FROM tenants ORDER BY name, id
+`
+
+// Every tenant, for tree assembly.
+func (q *Queries) ListTenantsTree(ctx context.Context) ([]Tenant, error) {
+	rows, err := q.db.Query(ctx, listTenantsTree)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tenant
+	for rows.Next() {
+		var i Tenant
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.Description,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentID,
 		); err != nil {
 			return nil, err
 		}
@@ -166,26 +231,26 @@ func (q *Queries) ListTenants(ctx context.Context, arg ListTenantsParams) ([]Lis
 
 const updateTenant = `-- name: UpdateTenant :one
 UPDATE tenants
-SET slug = $2, name = $3, description = $4, tenant_group_id = $5, updated_at = now()
+SET parent_id = $2, slug = $3, name = $4, description = $5, updated_at = now()
 WHERE id = $1
-RETURNING id, slug, name, description, created_at, updated_at, tenant_group_id
+RETURNING id, slug, name, description, created_at, updated_at, parent_id
 `
 
 type UpdateTenantParams struct {
-	ID            uuid.UUID
-	Slug          string
-	Name          string
-	Description   string
-	TenantGroupID *uuid.UUID
+	ID          uuid.UUID
+	ParentID    *uuid.UUID
+	Slug        string
+	Name        string
+	Description string
 }
 
 func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) (Tenant, error) {
 	row := q.db.QueryRow(ctx, updateTenant,
 		arg.ID,
+		arg.ParentID,
 		arg.Slug,
 		arg.Name,
 		arg.Description,
-		arg.TenantGroupID,
 	)
 	var i Tenant
 	err := row.Scan(
@@ -195,7 +260,7 @@ func (q *Queries) UpdateTenant(ctx context.Context, arg UpdateTenantParams) (Ten
 		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.TenantGroupID,
+		&i.ParentID,
 	)
 	return i, err
 }

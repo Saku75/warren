@@ -35,6 +35,7 @@ func TestValidate(t *testing.T) {
 		{"spa ce", ErrBadFormat},
 		{"dot.ted", ErrBadFormat},
 		{"røde", ErrBadFormat},
+		{"new", ErrReserved},
 		{"0192f3a1-7b2c-7def-8abc-0123456789ab", ErrUUIDShape},
 	}
 	for _, tc := range invalid {

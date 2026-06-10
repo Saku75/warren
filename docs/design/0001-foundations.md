@@ -87,6 +87,8 @@ Warren" — for URLs, API payloads, change logs, webhooks, and import files.
   no underscores, no uppercase, no unicode.
 - A slug must **not** match the canonical UUID shape. This makes every
   reference unambiguous: parse as UUID → it's an ID; otherwise → slug.
+- A small reserved list (currently `new`) is rejected so fixed routes
+  like `/dcim/sites/new` can never collide with an object.
 - One generator (`slug.Make`) derives suggestions from display names
   (transliteration + NFKD fold: "Røde Æbler" → "rode-aebler"); users may
   edit the suggestion. One validator (`slug.Validate`) is used everywhere.
@@ -173,7 +175,13 @@ paint over them.
    declared field schemas, server-side validation, and expression indexes
    for filterable fields.
 8. **Inconsistent tenancy** → a uniform optional `tenant_id` on every
-   asset-class object from day one, with one filtering semantic.
+   asset-class object from day one, with one filtering semantic. Tenants
+   are hierarchical (a tenant may have a parent tenant) instead of using
+   a separate group tree: in NetBox, group nodes are not assignable, so
+   a device cannot belong to the parent org while a VM belongs to a
+   child org. In Warren every level of the hierarchy is a real tenant.
+   Tenant slugs stay globally unique — refs stay short and stable; the
+   hierarchy is organizational, not an addressing scope.
 9. **Change log as a side effect** → an append-only event log written in
    the same transaction as the mutation; webhooks and the UI activity feed
    consume it via the outbox pattern (§6).
@@ -230,8 +238,8 @@ API + HTMX UI, with change logging and tenancy hooks from Phase 1 onward.
   kernel (`id`, `slug`, `objtype`), HTTP skeleton with probes and graceful
   shutdown, container image, design doc.
 - **Phase 1 — Platform spine + organization**: Postgres wiring (pgx +
-  sqlc), migrations with advisory lock, the change log, tenants + tenant
-  groups, site groups, sites, location tree. First real test of scoped
+  sqlc), migrations with advisory lock, the change log, hierarchical
+  tenants, site groups, sites, location tree. First real test of scoped
   slugs and path resolution.
 - **Phase 2 — Auth & access**: pluggable authentication behind one
   provider interface — local accounts (argon2id), LDAP, and OIDC SSO —

@@ -14,47 +14,29 @@ templ siteGroupKindSelect(selected string) {
 	</select>
 }
 
-// SiteGroupsPage lists the site group tree with a create form.
-templ SiteGroupsPage(roots []*tree.Node[gen.SiteGroup], flat []tree.Flat[gen.SiteGroup], errMsg string) {
+// SiteGroupsPage lists the site group tree.
+templ SiteGroupsPage(roots []*tree.Node[gen.SiteGroup], errMsg string) {
 	@Layout("Site groups", "site-groups") {
 		<header class="page-header">
 			<h1>Site groups</h1>
+			<div class="page-actions">
+				<a class="btn" href="/dcim/site-groups/new">Add site group</a>
+			</div>
 		</header>
-		@SiteGroupsSection(roots, flat, errMsg)
+		@SiteGroupsSection(roots, errMsg)
 	}
 }
 
-templ SiteGroupsSection(roots []*tree.Node[gen.SiteGroup], flat []tree.Flat[gen.SiteGroup], errMsg string) {
+templ SiteGroupsSection(roots []*tree.Node[gen.SiteGroup], errMsg string) {
 	<section id="site-groups-section">
 		@Alert(errMsg)
 		<div class="card">
 			if len(roots) == 0 {
-				<p class="empty">No site groups yet — add regions and groups below.</p>
+				<p class="empty">No site groups yet — <a href="/dcim/site-groups/new">add regions and groups</a>.</p>
 			} else {
 				@SiteGroupTreeList(roots)
 			}
 		</div>
-		<details class="card add-card" open?={ errMsg != "" }>
-			<summary>Add site group</summary>
-			<form
-				method="post"
-				action="/dcim/site-groups"
-				hx-post="/dcim/site-groups"
-				hx-target="#site-groups-section"
-				hx-swap="outerHTML"
-			>
-				<div class="form-grid">
-					<label>Name <input type="text" name="name" required placeholder="EMEA" data-slug-source/></label>
-					@SlugField("", false)
-					<label>Kind @siteGroupKindSelect("group")</label>
-					<label>Parent @groupSelect("parent", flat, siteGroupID, siteGroupName, "")</label>
-					<label class="span-2">Description <input type="text" name="description"/></label>
-				</div>
-				<div class="form-actions">
-					<button type="submit" class="btn">Create group</button>
-				</div>
-			</form>
-		</details>
 	</section>
 }
 
@@ -73,12 +55,54 @@ templ SiteGroupTreeList(nodes []*tree.Node[gen.SiteGroup]) {
 	</ul>
 }
 
+// SiteGroupFormPage is the standalone create form. in carries submitted
+// values back into the form when validation fails.
+templ SiteGroupFormPage(in dcim.SiteGroupInput, groups []tree.Flat[gen.SiteGroup], errMsg string) {
+	@Layout("Add site group", "site-groups") {
+		<nav class="crumbs"><a href="/dcim/site-groups">Site groups</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header">
+			<h1>Add site group</h1>
+		</header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/site-groups">
+				<div class="form-grid">
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="EMEA" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Kind
+						@siteGroupKindSelect(in.Kind)
+					</label>
+					<label>
+						Parent
+						@treeSelect("parent", groups, siteGroupOptID, siteGroupOptName, in.ParentRef)
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create group</button>
+					<a class="btn btn-ghost" href="/dcim/site-groups">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
 // SiteGroupDetailPage shows one site group with member sites.
 templ SiteGroupDetailPage(g gen.SiteGroup, path string, children []gen.SiteGroup, members []gen.Site, errMsg string) {
 	@Layout(g.Name, "site-groups") {
 		<nav class="crumbs"><a href="/dcim/site-groups">Site groups</a> <span>/</span> <span>{ g.Name }</span></nav>
 		<header class="page-header">
-			<h1>{ g.Name } @KindChip(g.Kind)</h1>
+			<h1>
+				{ g.Name }
+				@KindChip(g.Kind)
+			</h1>
 			<div class="page-actions">
 				<button
 					class="btn btn-ghost-danger"
@@ -103,10 +127,19 @@ templ SiteGroupDetailPage(g gen.SiteGroup, path string, children []gen.SiteGroup
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/site-groups/" + path) }>
 						<div class="form-grid">
-							<label>Name <input type="text" name="name" value={ g.Name } required data-slug-source/></label>
+							<label>
+								Name
+								<input type="text" name="name" value={ g.Name } required data-slug-source/>
+							</label>
 							@SlugField(g.Slug, true)
-							<label>Kind @siteGroupKindSelect(g.Kind)</label>
-							<label class="span-2">Description <input type="text" name="description" value={ g.Description }/></label>
+							<label>
+								Kind
+								@siteGroupKindSelect(g.Kind)
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ g.Description }/>
+							</label>
 						</div>
 						<div class="form-actions">
 							<button type="submit" class="btn">Save changes</button>
@@ -143,7 +176,9 @@ templ SiteGroupDetailPage(g gen.SiteGroup, path string, children []gen.SiteGroup
 									<tr>
 										<td><a class="obj-link" href={ templ.URL("/dcim/sites/" + m.Slug) }>{ m.Name }</a></td>
 										<td><code>{ m.Slug }</code></td>
-										<td>@StatusBadge(m.Status)</td>
+										<td>
+											@StatusBadge(m.Status)
+										</td>
 									</tr>
 								}
 							</tbody>

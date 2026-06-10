@@ -6,25 +6,53 @@ import (
 	"github.com/saku75/warren/internal/dcim"
 )
 
-// siteGroupSelect specializes groupSelect for site groups.
+// siteGroupSelect picks a site group from the tree.
 templ siteGroupSelect(flat []tree.Flat[gen.SiteGroup], selectedID string) {
-	@groupSelect("group", flat, siteGroupID, siteGroupName, selectedID)
+	@treeSelect("group", flat, siteGroupOptID, siteGroupOptName, selectedID)
 }
 
-func siteGroupID(g gen.SiteGroup) string   { return g.ID.String() }
-func siteGroupName(g gen.SiteGroup) string { return g.Name }
+func siteGroupOptID(g gen.SiteGroup) string   { return g.ID.String() }
+func siteGroupOptName(g gen.SiteGroup) string { return g.Name }
+
+templ statusSelect(selected string) {
+	<select name="status">
+		for _, st := range dcim.Statuses {
+			<option value={ st } selected?={ st == selected }>{ st }</option>
+		}
+	</select>
+}
+
+templ tenantSelect(tenants []gen.ListTenantsRow, selectedSlug string) {
+	<select name="tenant">
+		<option value="">— none —</option>
+		for _, t := range tenants {
+			<option value={ t.Slug } selected?={ t.Slug == selectedSlug }>{ t.Name }</option>
+		}
+	</select>
+}
+
+templ kindSelect(selected string) {
+	<select name="kind">
+		for _, k := range dcim.LocationKinds {
+			<option value={ k } selected?={ k == selected }>{ k }</option>
+		}
+	</select>
+}
 
 // SitesPage is the full sites list page.
-templ SitesPage(items []gen.ListSitesRow, tenants []gen.ListTenantsRow, groups []tree.Flat[gen.SiteGroup], errMsg string) {
+templ SitesPage(items []gen.ListSitesRow, errMsg string) {
 	@Layout("Sites", "sites") {
 		<header class="page-header">
 			<h1>Sites</h1>
+			<div class="page-actions">
+				<a class="btn" href="/dcim/sites/new">Add site</a>
+			</div>
 		</header>
-		@SitesSection(items, tenants, groups, errMsg)
+		@SitesSection(items, errMsg)
 	}
 }
 
-templ SitesSection(items []gen.ListSitesRow, tenants []gen.ListTenantsRow, groups []tree.Flat[gen.SiteGroup], errMsg string) {
+templ SitesSection(items []gen.ListSitesRow, errMsg string) {
 	<section id="sites-section">
 		@Alert(errMsg)
 		<div class="card table-card">
@@ -34,13 +62,15 @@ templ SitesSection(items []gen.ListSitesRow, tenants []gen.ListTenantsRow, group
 				</thead>
 				<tbody>
 					if len(items) == 0 {
-						<tr><td colspan="6" class="empty">No sites yet — add the first one below.</td></tr>
+						<tr><td colspan="6" class="empty">No sites yet — <a href="/dcim/sites/new">add the first one</a>.</td></tr>
 					}
 					for _, s := range items {
 						<tr>
 							<td><a class="obj-link" href={ templ.URL("/dcim/sites/" + s.Slug) }>{ s.Name }</a></td>
 							<td><code>{ s.Slug }</code></td>
-							<td>@StatusBadge(s.Status)</td>
+							<td>
+								@StatusBadge(s.Status)
+							</td>
 							<td>
 								if s.GroupName != nil {
 									{ *s.GroupName }
@@ -75,63 +105,70 @@ templ SitesSection(items []gen.ListSitesRow, tenants []gen.ListTenantsRow, group
 				</tbody>
 			</table>
 		</div>
-		<details class="card add-card" open?={ errMsg != "" }>
-			<summary>Add site</summary>
-			<form
-				method="post"
-				action="/dcim/sites"
-				hx-post="/dcim/sites"
-				hx-target="#sites-section"
-				hx-swap="outerHTML"
-			>
-				<div class="form-grid">
-					<label>Name <input type="text" name="name" required placeholder="Copenhagen DC 1" data-slug-source/></label>
-					@SlugField("", false)
-					<label>Status @statusSelect("active")</label>
-					<label>Group @siteGroupSelect(groups, "")</label>
-					<label>Tenant @tenantSelect(tenants, "")</label>
-					<label class="span-2">Description <input type="text" name="description"/></label>
-				</div>
-				<div class="form-actions">
-					<button type="submit" class="btn">Create site</button>
-				</div>
-			</form>
-		</details>
 	</section>
 }
 
-templ statusSelect(selected string) {
-	<select name="status">
-		for _, st := range dcim.Statuses {
-			<option value={ st } selected?={ st == selected }>{ st }</option>
-		}
-	</select>
-}
-
-templ tenantSelect(tenants []gen.ListTenantsRow, selectedSlug string) {
-	<select name="tenant">
-		<option value="">— none —</option>
-		for _, t := range tenants {
-			<option value={ t.Slug } selected?={ t.Slug == selectedSlug }>{ t.Name }</option>
-		}
-	</select>
-}
-
-templ kindSelect(selected string) {
-	<select name="kind">
-		for _, k := range dcim.LocationKinds {
-			<option value={ k } selected?={ k == selected }>{ k }</option>
-		}
-	</select>
+// SiteFormPage is the standalone create form. in carries submitted values
+// back into the form when validation fails.
+templ SiteFormPage(in dcim.SiteInput, tenants []gen.ListTenantsRow, groups []tree.Flat[gen.SiteGroup], errMsg string) {
+	@Layout("Add site", "sites") {
+		<nav class="crumbs"><a href="/dcim/sites">Sites</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header">
+			<h1>Add site</h1>
+		</header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/sites">
+				<div class="form-grid">
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="Copenhagen DC 1" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Status
+						@statusSelect(in.Status)
+					</label>
+					<label>
+						Group
+						@siteGroupSelect(groups, in.GroupRef)
+					</label>
+					<label>
+						Tenant
+						@tenantSelect(tenants, in.TenantRef)
+					</label>
+					<label>
+						Facility
+						<input type="text" name="facility" value={ in.Facility }/>
+					</label>
+					<label>
+						Time zone
+						<input type="text" name="time_zone" value={ in.TimeZone } placeholder="Europe/Copenhagen"/>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create site</button>
+					<a class="btn btn-ghost" href="/dcim/sites">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
 }
 
 // SiteDetailPage shows one site: facts, edit form, and its location tree.
 // groupPath/groupName are empty when the site has no group.
-templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.ListTenantsRow, groupPath string, groupName string, groups []tree.Flat[gen.SiteGroup], locTree []*tree.Node[gen.Location], flat []tree.Flat[gen.Location], errMsg string) {
+templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.ListTenantsRow, groupPath string, groupName string, groups []tree.Flat[gen.SiteGroup], locTree []*tree.Node[gen.Location], errMsg string) {
 	@Layout(site.Name, "sites") {
 		<nav class="crumbs"><a href="/dcim/sites">Sites</a> <span>/</span> <span>{ site.Name }</span></nav>
 		<header class="page-header">
-			<h1>{ site.Name } @StatusBadge(site.Status)</h1>
+			<h1>
+				{ site.Name }
+				@StatusBadge(site.Status)
+			</h1>
 			<div class="page-actions">
 				<button
 					class="btn btn-ghost-danger"
@@ -165,14 +202,35 @@ templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.ListTenants
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug) }>
 						<div class="form-grid">
-							<label>Name <input type="text" name="name" value={ site.Name } required data-slug-source/></label>
+							<label>
+								Name
+								<input type="text" name="name" value={ site.Name } required data-slug-source/>
+							</label>
 							@SlugField(site.Slug, true)
-							<label>Status @statusSelect(site.Status)</label>
-							<label>Group @siteGroupSelect(groups, derefID(site.SiteGroupID))</label>
-							<label>Tenant @tenantSelect(tenants, tenantSlug)</label>
-							<label>Facility <input type="text" name="facility" value={ site.Facility }/></label>
-							<label>Time zone <input type="text" name="time_zone" value={ site.TimeZone } placeholder="Europe/Copenhagen"/></label>
-							<label class="span-2">Description <input type="text" name="description" value={ site.Description }/></label>
+							<label>
+								Status
+								@statusSelect(site.Status)
+							</label>
+							<label>
+								Group
+								@siteGroupSelect(groups, derefID(site.SiteGroupID))
+							</label>
+							<label>
+								Tenant
+								@tenantSelect(tenants, tenantSlug)
+							</label>
+							<label>
+								Facility
+								<input type="text" name="facility" value={ site.Facility }/>
+							</label>
+							<label>
+								Time zone
+								<input type="text" name="time_zone" value={ site.TimeZone } placeholder="Europe/Copenhagen"/>
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ site.Description }/>
+							</label>
 						</div>
 						<div class="form-actions">
 							<button type="submit" class="btn">Save changes</button>
@@ -181,33 +239,15 @@ templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.ListTenants
 				</section>
 			</div>
 			<section class="card">
-				<header class="card-head"><h2>Locations</h2></header>
+				<header class="card-head">
+					<h2>Locations</h2>
+					<a class="card-link" href={ templ.URL("/dcim/sites/" + site.Slug + "/locations/new") }>Add location</a>
+				</header>
 				if len(locTree) == 0 {
-					<p class="empty">No locations yet — model the buildings, floors, and rows below.</p>
+					<p class="empty">No locations yet — model the buildings, floors, and rows here.</p>
 				} else {
 					@LocationTreeList(locTree)
 				}
-				<details class="add-card add-inline" open?={ errMsg != "" }>
-					<summary>Add location</summary>
-					<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug + "/locations") }>
-						<div class="form-grid">
-							<label>Name <input type="text" name="name" required placeholder="Building A" data-slug-source/></label>
-							@SlugField("", false)
-							<label>Kind @kindSelect("area")</label>
-							<label>Parent
-								<select name="parent">
-									<option value="">— site root —</option>
-									for _, f := range flat {
-										<option value={ f.Node.Item.ID.String() }>{ f.Indent() + f.Node.Item.Name }</option>
-									}
-								</select>
-							</label>
-						</div>
-						<div class="form-actions">
-							<button type="submit" class="btn">Create location</button>
-						</div>
-					</form>
-				</details>
 			</section>
 		</div>
 	}

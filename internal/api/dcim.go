@@ -395,6 +395,16 @@ type siteGroupWrite struct {
 	Description *string `json:"description"`
 }
 
+// groupTreeRep is the nested tree shape of the group list endpoint.
+type groupTreeRep struct {
+	ID       string         `json:"id"`
+	Slug     string         `json:"slug"`
+	SlugPath string         `json:"slug_path"`
+	Name     string         `json:"name"`
+	Kind     string         `json:"kind,omitempty"`
+	Children []groupTreeRep `json:"children"`
+}
+
 func siteGroupTreeToRep(nodes []*tree.Node[gen.SiteGroup]) []groupTreeRep {
 	out := make([]groupTreeRep, len(nodes))
 	for i, n := range nodes {

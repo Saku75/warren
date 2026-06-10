@@ -37,23 +37,22 @@ const uiListLimit = 200
 func (u *uiHandler) routes(r chi.Router) {
 	r.Get("/", u.dashboard)
 
+	// "new" is a reserved slug (slug.Validate), so the static form routes
+	// can never collide with an object reference.
 	r.Get("/tenancy/tenants", u.tenantsPage)
 	r.Post("/tenancy/tenants", u.createTenant)
+	r.Get("/tenancy/tenants/new", u.tenantFormPage)
 	r.Get("/tenancy/tenants/{ref}", u.tenantDetail)
 	r.Post("/tenancy/tenants/{ref}", u.updateTenant)
 	r.Delete("/tenancy/tenants/{ref}", u.deleteTenant)
 
-	r.Get("/tenancy/tenant-groups", u.tenantGroupsPage)
-	r.Post("/tenancy/tenant-groups", u.createTenantGroup)
-	r.Get("/tenancy/tenant-groups/*", u.tenantGroupDetail)
-	r.Post("/tenancy/tenant-groups/*", u.updateTenantGroup)
-	r.Delete("/tenancy/tenant-groups/*", u.deleteTenantGroup)
-
 	r.Get("/dcim/sites", u.sitesPage)
 	r.Post("/dcim/sites", u.createSite)
+	r.Get("/dcim/sites/new", u.siteFormPage)
 	r.Get("/dcim/sites/{ref}", u.siteDetail)
 	r.Post("/dcim/sites/{ref}", u.updateSite)
 	r.Delete("/dcim/sites/{ref}", u.deleteSite)
+	r.Get("/dcim/sites/{ref}/locations/new", u.locationFormPage)
 	r.Post("/dcim/sites/{ref}/locations", u.createLocation)
 
 	r.Get("/dcim/locations/*", u.locationDetail)
@@ -62,6 +61,7 @@ func (u *uiHandler) routes(r chi.Router) {
 
 	r.Get("/dcim/site-groups", u.siteGroupsPage)
 	r.Post("/dcim/site-groups", u.createSiteGroup)
+	r.Get("/dcim/site-groups/new", u.siteGroupFormPage)
 	r.Get("/dcim/site-groups/*", u.siteGroupDetail)
 	r.Post("/dcim/site-groups/*", u.updateSiteGroup)
 	r.Delete("/dcim/site-groups/*", u.deleteSiteGroup)

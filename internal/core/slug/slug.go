@@ -42,7 +42,12 @@ var (
 	ErrTooLong   = fmt.Errorf("slug exceeds %d characters", MaxLen)
 	ErrBadFormat = errors.New("slug must be lowercase letters, digits, and single hyphens between groups")
 	ErrUUIDShape = errors.New("slug must not be formatted like a UUID")
+	ErrReserved  = errors.New("slug is reserved")
 )
+
+// reserved are slugs that would collide with fixed UI/API routes
+// (e.g. /tenancy/tenants/new).
+var reserved = map[string]bool{"new": true}
 
 // Validate reports whether s is a well-formed slug.
 func Validate(s string) error {
@@ -55,6 +60,8 @@ func Validate(s string) error {
 		return ErrBadFormat
 	case uuidShape.MatchString(s):
 		return ErrUUIDShape
+	case reserved[s]:
+		return ErrReserved
 	}
 	return nil
 }

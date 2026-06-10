@@ -47,15 +47,7 @@ func (h *Handler) Routes() chi.Router {
 		r.Delete("/{ref}", h.deleteTenant)
 	})
 
-	// Group refs are slug paths ("emea/dk"), so these use wildcards.
-	r.Route("/tenancy/tenant-groups", func(r chi.Router) {
-		r.Get("/", h.listTenantGroups)
-		r.Post("/", h.createTenantGroup)
-		r.Get("/*", h.getTenantGroup)
-		r.Patch("/*", h.updateTenantGroup)
-		r.Delete("/*", h.deleteTenantGroup)
-	})
-
+	// Site group refs are slug paths ("emea/colo"), so these use wildcards.
 	r.Route("/dcim/site-groups", func(r chi.Router) {
 		r.Get("/", h.listSiteGroups)
 		r.Post("/", h.createSiteGroup)

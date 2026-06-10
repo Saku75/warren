@@ -1,5 +1,11 @@
 package web
 
+import (
+	"github.com/google/uuid"
+
+	"github.com/saku75/warren/internal/core/tree"
+)
+
 // Layout is the application shell: sidebar navigation plus a content
 // column. section marks the active nav entry ("dashboard", "tenants",
 // "sites", "changelog", or "" for none).
@@ -25,7 +31,6 @@ templ Layout(title string, section string) {
 						@navLink("/", "Dashboard", section == "dashboard")
 						<span class="nav-group">Organization</span>
 						@navLink("/tenancy/tenants", "Tenants", section == "tenants")
-						@navLink("/tenancy/tenant-groups", "Tenant groups", section == "tenant-groups")
 						<span class="nav-group">DCIM</span>
 						@navLink("/dcim/sites", "Sites", section == "sites")
 						@navLink("/dcim/site-groups", "Site groups", section == "site-groups")
@@ -80,6 +85,25 @@ templ SlugField(value string, required bool) {
 			<button type="button" class="btn-regen" data-slug-regen title="Regenerate slug from name" aria-label="Regenerate slug from name">&#8635;</button>
 		</span>
 	</label>
+}
+
+// treeSelect renders an indented select over a flattened slug tree, for
+// choosing a parent or group. Option values are object IDs.
+templ treeSelect[T any](name string, flat []tree.Flat[T], optID func(T) string, optName func(T) string, selectedID string) {
+	<select name={ name }>
+		<option value="">— none —</option>
+		for _, f := range flat {
+			<option value={ optID(f.Node.Item) } selected?={ optID(f.Node.Item) == selectedID }>{ f.Indent() + optName(f.Node.Item) }</option>
+		}
+	</select>
+}
+
+// derefID renders an optional object reference for select pre-selection.
+func derefID(p *uuid.UUID) string {
+	if p == nil {
+		return ""
+	}
+	return p.String()
 }
 
 // ErrorPage is the full-page error fallback.
