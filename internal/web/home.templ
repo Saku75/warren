@@ -1,12 +1,18 @@
 package web
 
-// Home is the placeholder landing page for Phase 0.
+// Home is the landing page.
 templ Home(version string) {
 	@Layout("Home") {
 		<section class="hero">
 			<h1>Warren</h1>
 			<p>Infrastructure resource modeling: datacenter infrastructure and IP address management.</p>
-			<p class="meta">version { version } · phase 0 — foundations</p>
+			<ul class="quick-links">
+				<li><a href="/dcim/sites">Sites</a> — physical sites and their location trees</li>
+				<li><a href="/tenancy/tenants">Tenants</a> — who owns what</li>
+				<li><a href="/changelog">Changelog</a> — every change, who and when</li>
+				<li><a href="/api/v1/dcim/sites">REST API</a> — same capabilities, JSON over HTTP</li>
+			</ul>
+			<p class="meta">version { version } · phase 1 — organization</p>
 		</section>
 	}
 }

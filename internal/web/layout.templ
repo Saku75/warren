@@ -14,10 +14,41 @@ templ Layout(title string) {
 		<body>
 			<header class="topbar">
 				<a class="brand" href="/">Warren</a>
+				<nav class="nav">
+					<a href="/dcim/sites">Sites</a>
+					<a href="/tenancy/tenants">Tenants</a>
+					<a href="/changelog">Changelog</a>
+				</nav>
 			</header>
 			<main class="content">
 				{ children... }
 			</main>
 		</body>
 	</html>
+}
+
+// Alert renders an error banner inside a section.
+templ Alert(msg string) {
+	if msg != "" {
+		<div class="alert" role="alert">{ msg }</div>
+	}
+}
+
+// StatusBadge renders a colored status chip.
+templ StatusBadge(status string) {
+	<span class={ "badge", "badge-" + status }>{ status }</span>
+}
+
+// KindChip renders a location kind label.
+templ KindChip(kind string) {
+	<span class="chip">{ kind }</span>
+}
+
+// ErrorPage is the full-page error fallback.
+templ ErrorPage(msg string) {
+	@Layout("Error") {
+		<h1>Something went wrong</h1>
+		<p class="alert" role="alert">{ msg }</p>
+		<p><a href="/">Back to start</a></p>
+	}
 }

@@ -1,0 +1,85 @@
+package web
+
+import "github.com/saku75/warren/internal/db/gen"
+
+// TenantsPage is the full tenants list page.
+templ TenantsPage(items []gen.Tenant, errMsg string) {
+	@Layout("Tenants") {
+		<h1>Tenants</h1>
+		@TenantsSection(items, errMsg)
+	}
+}
+
+// TenantsSection is the swappable list + create form. UI mutations target
+// this section so htmx swaps keep the page state consistent.
+templ TenantsSection(items []gen.Tenant, errMsg string) {
+	<section id="tenants-section">
+		@Alert(errMsg)
+		<table class="objects">
+			<thead>
+				<tr><th>Name</th><th>Slug</th><th>Description</th><th></th></tr>
+			</thead>
+			<tbody>
+				if len(items) == 0 {
+					<tr><td colspan="4" class="empty">No tenants yet.</td></tr>
+				}
+				for _, t := range items {
+					<tr>
+						<td><a href={ templ.URL("/tenancy/tenants/" + t.Slug) }>{ t.Name }</a></td>
+						<td><code>{ t.Slug }</code></td>
+						<td>{ t.Description }</td>
+						<td class="row-actions">
+							<button
+								class="btn btn-danger btn-small"
+								hx-delete={ "/tenancy/tenants/" + t.Slug }
+								hx-target="#tenants-section"
+								hx-swap="outerHTML"
+								hx-confirm={ "Delete tenant " + t.Name + "?" }
+							>delete</button>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<form
+			class="create-form"
+			method="post"
+			action="/tenancy/tenants"
+			hx-post="/tenancy/tenants"
+			hx-target="#tenants-section"
+			hx-swap="outerHTML"
+		>
+			<fieldset>
+				<legend>Add tenant</legend>
+				<label>Name <input type="text" name="name" required/></label>
+				<label>Slug <input type="text" name="slug" placeholder="derived from name"/></label>
+				<label>Description <input type="text" name="description"/></label>
+				<button type="submit" class="btn">Create</button>
+			</fieldset>
+		</form>
+	</section>
+}
+
+// TenantDetailPage shows and edits one tenant.
+templ TenantDetailPage(t gen.Tenant, errMsg string) {
+	@Layout(t.Name) {
+		<nav class="crumbs"><a href="/tenancy/tenants">Tenants</a> / <span>{ t.Name }</span></nav>
+		<h1>{ t.Name }</h1>
+		<p class="meta"><code>{ "tenancy.tenant:" + t.Slug }</code> · <code>{ t.ID.String() }</code></p>
+		@Alert(errMsg)
+		<form class="edit-form" method="post" action={ templ.URL("/tenancy/tenants/" + t.Slug) }>
+			<fieldset>
+				<legend>Edit</legend>
+				<label>Name <input type="text" name="name" value={ t.Name } required/></label>
+				<label>Slug <input type="text" name="slug" value={ t.Slug } required/></label>
+				<label>Description <input type="text" name="description" value={ t.Description }/></label>
+				<button type="submit" class="btn">Save</button>
+			</fieldset>
+		</form>
+		<button
+			class="btn btn-danger"
+			hx-delete={ "/tenancy/tenants/" + t.Slug }
+			hx-confirm={ "Delete tenant " + t.Name + "?" }
+		>Delete tenant</button>
+	}
+}

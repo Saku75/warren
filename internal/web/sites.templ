@@ -1,0 +1,177 @@
+package web
+
+import (
+	"github.com/saku75/warren/internal/db/gen"
+	"github.com/saku75/warren/internal/dcim"
+)
+
+// SitesPage is the full sites list page.
+templ SitesPage(items []gen.ListSitesRow, tenants []gen.Tenant, errMsg string) {
+	@Layout("Sites") {
+		<h1>Sites</h1>
+		@SitesSection(items, tenants, errMsg)
+	}
+}
+
+templ SitesSection(items []gen.ListSitesRow, tenants []gen.Tenant, errMsg string) {
+	<section id="sites-section">
+		@Alert(errMsg)
+		<table class="objects">
+			<thead>
+				<tr><th>Name</th><th>Slug</th><th>Status</th><th>Tenant</th><th></th></tr>
+			</thead>
+			<tbody>
+				if len(items) == 0 {
+					<tr><td colspan="5" class="empty">No sites yet.</td></tr>
+				}
+				for _, s := range items {
+					<tr>
+						<td><a href={ templ.URL("/dcim/sites/" + s.Slug) }>{ s.Name }</a></td>
+						<td><code>{ s.Slug }</code></td>
+						<td>@StatusBadge(s.Status)</td>
+						<td>
+							if s.TenantSlug != nil {
+								<a href={ templ.URL("/tenancy/tenants/" + *s.TenantSlug) }>
+									if s.TenantName != nil {
+										{ *s.TenantName }
+									} else {
+										{ *s.TenantSlug }
+									}
+								</a>
+							} else {
+								<span class="muted">—</span>
+							}
+						</td>
+						<td class="row-actions">
+							<button
+								class="btn btn-danger btn-small"
+								hx-delete={ "/dcim/sites/" + s.Slug }
+								hx-target="#sites-section"
+								hx-swap="outerHTML"
+								hx-confirm={ "Delete site " + s.Name + " and its locations?" }
+							>delete</button>
+						</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		<form
+			class="create-form"
+			method="post"
+			action="/dcim/sites"
+			hx-post="/dcim/sites"
+			hx-target="#sites-section"
+			hx-swap="outerHTML"
+		>
+			<fieldset>
+				<legend>Add site</legend>
+				<label>Name <input type="text" name="name" required/></label>
+				<label>Slug <input type="text" name="slug" placeholder="derived from name"/></label>
+				<label>Status @statusSelect("active")</label>
+				<label>Tenant @tenantSelect(tenants, "")</label>
+				<label>Description <input type="text" name="description"/></label>
+				<button type="submit" class="btn">Create</button>
+			</fieldset>
+		</form>
+	</section>
+}
+
+templ statusSelect(selected string) {
+	<select name="status">
+		for _, st := range dcim.Statuses {
+			<option value={ st } selected?={ st == selected }>{ st }</option>
+		}
+	</select>
+}
+
+templ tenantSelect(tenants []gen.Tenant, selectedSlug string) {
+	<select name="tenant">
+		<option value="">— none —</option>
+		for _, t := range tenants {
+			<option value={ t.Slug } selected?={ t.Slug == selectedSlug }>{ t.Name }</option>
+		}
+	</select>
+}
+
+templ kindSelect(selected string) {
+	<select name="kind">
+		for _, k := range dcim.LocationKinds {
+			<option value={ k } selected?={ k == selected }>{ k }</option>
+		}
+	</select>
+}
+
+// SiteDetailPage shows one site: fields, edit form, and its location tree.
+templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.Tenant, tree []*dcim.LocationNode, flat []dcim.FlatLocation, errMsg string) {
+	@Layout(site.Name) {
+		<nav class="crumbs"><a href="/dcim/sites">Sites</a> / <span>{ site.Name }</span></nav>
+		<h1>{ site.Name } @StatusBadge(site.Status)</h1>
+		<p class="meta"><code>{ "dcim.site:" + site.Slug }</code> · <code>{ site.ID.String() }</code></p>
+		@Alert(errMsg)
+		<div class="cols">
+			<form class="edit-form" method="post" action={ templ.URL("/dcim/sites/" + site.Slug) }>
+				<fieldset>
+					<legend>Edit</legend>
+					<label>Name <input type="text" name="name" value={ site.Name } required/></label>
+					<label>Slug <input type="text" name="slug" value={ site.Slug } required/></label>
+					<label>Status @statusSelect(site.Status)</label>
+					<label>Tenant @tenantSelect(tenants, tenantSlug)</label>
+					<label>Facility <input type="text" name="facility" value={ site.Facility }/></label>
+					<label>Time zone <input type="text" name="time_zone" value={ site.TimeZone } placeholder="Europe/Copenhagen"/></label>
+					<label>Description <input type="text" name="description" value={ site.Description }/></label>
+					<button type="submit" class="btn">Save</button>
+				</fieldset>
+			</form>
+			<section id="locations-section">
+				<h2>Locations</h2>
+				if len(tree) == 0 {
+					<p class="empty">No locations yet.</p>
+				} else {
+					@LocationTreeList(tree)
+				}
+				<form
+					class="create-form"
+					method="post"
+					action={ templ.URL("/dcim/sites/" + site.Slug + "/locations") }
+				>
+					<fieldset>
+						<legend>Add location</legend>
+						<label>Name <input type="text" name="name" required/></label>
+						<label>Slug <input type="text" name="slug" placeholder="derived from name"/></label>
+						<label>Kind @kindSelect("area")</label>
+						<label>Parent
+							<select name="parent">
+								<option value="">— site root —</option>
+								for _, f := range flat {
+									<option value={ f.Node.Location.ID.String() }>{ f.Indent() + f.Node.Location.Name }</option>
+								}
+							</select>
+						</label>
+						<button type="submit" class="btn">Create</button>
+					</fieldset>
+				</form>
+			</section>
+		</div>
+		<button
+			class="btn btn-danger"
+			hx-delete={ "/dcim/sites/" + site.Slug }
+			hx-confirm={ "Delete site " + site.Name + " and its locations?" }
+		>Delete site</button>
+	}
+}
+
+// LocationTreeList renders the nested location tree.
+templ LocationTreeList(nodes []*dcim.LocationNode) {
+	<ul class="loc-tree">
+		for _, n := range nodes {
+			<li>
+				<a href={ templ.URL("/dcim/locations/" + n.Path) }>{ n.Location.Name }</a>
+				@KindChip(n.Location.Kind)
+				@StatusBadge(n.Location.Status)
+				if len(n.Children) > 0 {
+					@LocationTreeList(n.Children)
+				}
+			</li>
+		}
+	</ul>
+}

@@ -1,0 +1,49 @@
+package web
+
+import "github.com/saku75/warren/internal/db/gen"
+
+// LocationDetailPage shows one location with its children.
+templ LocationDetailPage(loc gen.Location, path string, site gen.Site, children []gen.Location, errMsg string) {
+	@Layout(loc.Name) {
+		<nav class="crumbs">
+			<a href="/dcim/sites">Sites</a> /
+			<a href={ templ.URL("/dcim/sites/" + site.Slug) }>{ site.Name }</a> /
+			<span>{ loc.Name }</span>
+		</nav>
+		<h1>{ loc.Name } @KindChip(loc.Kind) @StatusBadge(loc.Status)</h1>
+		<p class="meta"><code>{ "dcim.location:" + path }</code> · <code>{ loc.ID.String() }</code></p>
+		@Alert(errMsg)
+		<form class="edit-form" method="post" action={ templ.URL("/dcim/locations/" + path) }>
+			<fieldset>
+				<legend>Edit</legend>
+				<label>Name <input type="text" name="name" value={ loc.Name } required/></label>
+				<label>Slug <input type="text" name="slug" value={ loc.Slug } required/></label>
+				<label>Kind @kindSelect(loc.Kind)</label>
+				<label>Status @statusSelect(loc.Status)</label>
+				<label>Description <input type="text" name="description" value={ loc.Description }/></label>
+				<button type="submit" class="btn">Save</button>
+			</fieldset>
+		</form>
+		<section>
+			<h2>Children</h2>
+			if len(children) == 0 {
+				<p class="empty">No child locations.</p>
+			} else {
+				<ul class="loc-tree">
+					for _, c := range children {
+						<li>
+							<a href={ templ.URL("/dcim/locations/" + path + "/" + c.Slug) }>{ c.Name }</a>
+							@KindChip(c.Kind)
+							@StatusBadge(c.Status)
+						</li>
+					}
+				</ul>
+			}
+		</section>
+		<button
+			class="btn btn-danger"
+			hx-delete={ "/dcim/locations/" + path }
+			hx-confirm={ "Delete location " + loc.Name + "?" }
+		>Delete location</button>
+	}
+}

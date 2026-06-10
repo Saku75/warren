@@ -4,6 +4,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 generate:
 	go tool templ generate
+	go tool sqlc generate
 
 build: generate
 	go build -trimpath -ldflags "-X main.version=$(VERSION)" -o bin/warren ./cmd/warren

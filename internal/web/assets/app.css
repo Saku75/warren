@@ -1,4 +1,5 @@
-/* Minimal Phase 0 stylesheet. A real design system comes with Phase 1. */
+/* Warren Phase 1 stylesheet: deliberately small. A real design system is
+   an open question in the foundations doc. */
 
 :root {
 	--bg: #fafaf8;
@@ -6,6 +7,8 @@
 	--muted: #6b6b66;
 	--accent: #8a5a2b;
 	--border: #e3e3de;
+	--danger: #a33a2a;
+	--ok: #2a7a44;
 }
 
 * {
@@ -20,9 +23,19 @@ body {
 	line-height: 1.5;
 }
 
+code {
+	background: #f0f0ec;
+	padding: 0.1em 0.35em;
+	border-radius: 4px;
+	font-size: 0.875em;
+}
+
+/* layout */
+
 .topbar {
 	display: flex;
 	align-items: center;
+	gap: 2rem;
 	padding: 0.75rem 1.5rem;
 	border-bottom: 1px solid var(--border);
 	background: #fff;
@@ -36,8 +49,22 @@ body {
 	letter-spacing: 0.02em;
 }
 
+.nav {
+	display: flex;
+	gap: 1.25rem;
+}
+
+.nav a {
+	color: var(--fg);
+	text-decoration: none;
+}
+
+.nav a:hover {
+	color: var(--accent);
+}
+
 .content {
-	max-width: 60rem;
+	max-width: 70rem;
 	margin: 0 auto;
 	padding: 2rem 1.5rem;
 }
@@ -47,7 +74,223 @@ body {
 	font-size: 2rem;
 }
 
-.hero .meta {
+.meta {
 	color: var(--muted);
 	font-size: 0.875rem;
+}
+
+.crumbs {
+	font-size: 0.875rem;
+	color: var(--muted);
+	margin-bottom: 0.5rem;
+}
+
+.cols {
+	display: grid;
+	grid-template-columns: minmax(18rem, 24rem) 1fr;
+	gap: 2.5rem;
+	align-items: start;
+}
+
+@media (max-width: 50rem) {
+	.cols {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* tables */
+
+table.objects {
+	width: 100%;
+	border-collapse: collapse;
+	background: #fff;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+}
+
+table.objects th,
+table.objects td {
+	text-align: left;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid var(--border);
+}
+
+table.objects th {
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--muted);
+}
+
+table.objects tr:last-child td {
+	border-bottom: none;
+}
+
+td.empty,
+p.empty {
+	color: var(--muted);
+	font-style: italic;
+}
+
+td.row-actions {
+	text-align: right;
+}
+
+/* forms */
+
+fieldset {
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: #fff;
+	padding: 1rem;
+	margin: 1.5rem 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+	align-items: end;
+}
+
+legend {
+	font-weight: 600;
+	padding: 0 0.4rem;
+}
+
+label {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	font-size: 0.875rem;
+	color: var(--muted);
+}
+
+input,
+select {
+	font: inherit;
+	color: var(--fg);
+	padding: 0.4rem 0.6rem;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: #fff;
+	min-width: 10rem;
+}
+
+.edit-form fieldset {
+	flex-direction: column;
+	align-items: stretch;
+}
+
+/* buttons */
+
+.btn {
+	font: inherit;
+	padding: 0.45rem 0.9rem;
+	border: 1px solid var(--accent);
+	border-radius: 4px;
+	background: var(--accent);
+	color: #fff;
+	cursor: pointer;
+}
+
+.btn:hover {
+	filter: brightness(1.1);
+}
+
+.btn-danger {
+	background: #fff;
+	border-color: var(--danger);
+	color: var(--danger);
+}
+
+.btn-danger:hover {
+	background: var(--danger);
+	color: #fff;
+}
+
+.btn-small {
+	padding: 0.15rem 0.5rem;
+	font-size: 0.8rem;
+}
+
+/* badges & chips */
+
+.badge {
+	display: inline-block;
+	padding: 0.05rem 0.5rem;
+	border-radius: 999px;
+	font-size: 0.75rem;
+	border: 1px solid var(--border);
+	background: #f0f0ec;
+	color: var(--muted);
+	vertical-align: middle;
+}
+
+.badge-active { background: #e4f3e9; color: var(--ok); border-color: #bfe3cc; }
+.badge-planned { background: #e7eef8; color: #2b5a8a; border-color: #c4d7ee; }
+.badge-staging { background: #fdf3df; color: #8a6d2b; border-color: #eedfb8; }
+.badge-decommissioning { background: #fbe9df; color: #8a4a2b; border-color: #eecdb8; }
+.badge-retired { background: #efefec; color: var(--muted); }
+.badge-create { background: #e4f3e9; color: var(--ok); border-color: #bfe3cc; }
+.badge-update { background: #e7eef8; color: #2b5a8a; border-color: #c4d7ee; }
+.badge-delete { background: #fbe3df; color: var(--danger); border-color: #eebcb8; }
+
+.chip {
+	display: inline-block;
+	padding: 0.05rem 0.5rem;
+	border-radius: 4px;
+	font-size: 0.75rem;
+	background: #efe9e1;
+	color: var(--accent);
+	vertical-align: middle;
+}
+
+/* alerts */
+
+.alert {
+	border: 1px solid #eebcb8;
+	background: #fbe3df;
+	color: var(--danger);
+	border-radius: 6px;
+	padding: 0.6rem 0.9rem;
+	margin: 0.75rem 0;
+}
+
+/* location tree */
+
+.loc-tree {
+	list-style: none;
+	padding-left: 0;
+	margin: 0.5rem 0;
+}
+
+.loc-tree .loc-tree {
+	padding-left: 1.25rem;
+	border-left: 1px solid var(--border);
+	margin-left: 0.4rem;
+}
+
+.loc-tree li {
+	padding: 0.2rem 0;
+}
+
+.loc-tree a {
+	color: var(--fg);
+	text-decoration: none;
+	font-weight: 500;
+	margin-right: 0.4rem;
+}
+
+.loc-tree a:hover {
+	color: var(--accent);
+}
+
+.quick-links {
+	padding-left: 1.2rem;
+}
+
+.quick-links li {
+	margin: 0.3rem 0;
+}
+
+.muted {
+	color: var(--muted);
 }
