@@ -30,9 +30,10 @@ system, one reference syntax — nothing else. The full rules live in
 
 ## Stack
 
-Go 1.24+ · chi · sqlc + pgx · templ · HTMX (vendored + embedded) ·
-PostgreSQL 16+ · `log/slog` JSON logs. Generated code is committed, so a
-fresh clone builds with only the Go toolchain.
+Go 1.26+ · chi · sqlc + pgx · templ · HTMX (vendored + embedded) ·
+PostgreSQL 16+ supported, 18 shipped in the compose stack · `log/slog`
+JSON logs. Generated code is committed, so a fresh clone builds with only
+the Go toolchain.
 
 ## Quickstart
 

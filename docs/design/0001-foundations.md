@@ -50,8 +50,8 @@ reports/export.
 
 | Concern    | Choice                                | Notes |
 |------------|---------------------------------------|-------|
-| Language   | Go (1.24+)                            | single static binary |
-| Database   | PostgreSQL 16+ only                   | native `inet`/`cidr` for IPAM, JSONB for custom fields, advisory locks, `SKIP LOCKED`, `LISTEN/NOTIFY` |
+| Language   | Go (1.26+)                            | single static binary |
+| Database   | PostgreSQL 16+ only (ship images track latest, currently 18) | native `inet`/`cidr` for IPAM, JSONB for custom fields, advisory locks, `SKIP LOCKED`, `LISTEN/NOTIFY` |
 | Routing    | chi                                   | stdlib-compatible middleware |
 | Data layer | sqlc over pgx                         | hand-written SQL, generated type-safe Go; no ORM |
 | Templates  | templ                                 | compiled, type-checked components; pairs with HTMX |

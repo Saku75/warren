@@ -13,7 +13,7 @@ services:
     read_only: true
 
   db:
-    image: postgres:17
+    image: postgres:18
     environment:
       POSTGRES_USER: warren
       POSTGRES_PASSWORD: warren
