@@ -151,7 +151,7 @@ code {
 
 .content {
 	padding: 1.75rem 2.25rem 3rem;
-	max-width: 78rem;
+	min-width: 0;
 }
 
 @media (max-width: 52rem) {
@@ -412,6 +412,36 @@ select:focus {
 
 .form-actions {
 	margin-top: 0.9rem;
+}
+
+/* slug input + regenerate button */
+
+.slug-row {
+	display: flex;
+	gap: 0.4rem;
+}
+
+.slug-row input {
+	flex: 1;
+	min-width: 0;
+	font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+	font-size: 0.85rem;
+}
+
+.btn-regen {
+	flex: none;
+	width: 2.3rem;
+	border: 1px solid var(--border);
+	border-radius: 7px;
+	background: var(--surface-2);
+	color: var(--muted);
+	font-size: 1.05rem;
+	cursor: pointer;
+}
+
+.btn-regen:hover {
+	color: var(--accent);
+	border-color: var(--accent);
 }
 
 /* collapsible "add" panels */

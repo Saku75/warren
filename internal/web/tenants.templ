@@ -55,8 +55,8 @@ templ TenantsSection(items []gen.Tenant, errMsg string) {
 				hx-swap="outerHTML"
 			>
 				<div class="form-grid">
-					<label>Name <input type="text" name="name" required placeholder="Lund Networks"/></label>
-					<label>Slug <input type="text" name="slug" placeholder="derived from name"/></label>
+					<label>Name <input type="text" name="name" required placeholder="Lund Networks" data-slug-source/></label>
+					@SlugField("", false)
 					<label class="span-2">Description <input type="text" name="description"/></label>
 				</div>
 				<div class="form-actions">
@@ -96,8 +96,8 @@ templ TenantDetailPage(t gen.Tenant, errMsg string) {
 				<header class="card-head"><h2>Edit</h2></header>
 				<form method="post" action={ templ.URL("/tenancy/tenants/" + t.Slug) }>
 					<div class="form-grid">
-						<label>Name <input type="text" name="name" value={ t.Name } required/></label>
-						<label>Slug <input type="text" name="slug" value={ t.Slug } required/></label>
+						<label>Name <input type="text" name="name" value={ t.Name } required data-slug-source/></label>
+						@SlugField(t.Slug, true)
 						<label class="span-2">Description <input type="text" name="description" value={ t.Description }/></label>
 					</div>
 					<div class="form-actions">

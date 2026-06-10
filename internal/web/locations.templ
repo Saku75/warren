@@ -37,8 +37,8 @@ templ LocationDetailPage(loc gen.Location, path string, site gen.Site, children 
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/locations/" + path) }>
 						<div class="form-grid">
-							<label>Name <input type="text" name="name" value={ loc.Name } required/></label>
-							<label>Slug <input type="text" name="slug" value={ loc.Slug } required/></label>
+							<label>Name <input type="text" name="name" value={ loc.Name } required data-slug-source/></label>
+							@SlugField(loc.Slug, true)
 							<label>Kind @kindSelect(loc.Kind)</label>
 							<label>Status @statusSelect(loc.Status)</label>
 							<label class="span-2">Description <input type="text" name="description" value={ loc.Description }/></label>

@@ -12,6 +12,7 @@ templ Layout(title string, section string) {
 			<title>{ title } · Warren</title>
 			<link rel="stylesheet" href="/assets/app.css"/>
 			<script src="/assets/htmx.min.js" defer></script>
+			<script src="/assets/app.js" defer></script>
 		</head>
 		<body>
 			<div class="shell">
@@ -57,6 +58,26 @@ templ StatusBadge(status string) {
 // KindChip renders a location kind label.
 templ KindChip(kind string) {
 	<span class="chip">{ kind }</span>
+}
+
+// SlugField is the slug input used in every create/edit form. It pairs
+// with a name input marked data-slug-source: the slug auto-fills while it
+// matches what the name generates, sticks once customized, and the ↻
+// button re-derives it from the name on demand (see assets/app.js).
+templ SlugField(value string, required bool) {
+	<label>Slug
+		<span class="slug-row">
+			<input
+				type="text"
+				name="slug"
+				value={ value }
+				data-slug-target
+				required?={ required }
+				placeholder="derived from name"
+			/>
+			<button type="button" class="btn-regen" data-slug-regen title="Regenerate slug from name" aria-label="Regenerate slug from name">&#8635;</button>
+		</span>
+	</label>
 }
 
 // ErrorPage is the full-page error fallback.

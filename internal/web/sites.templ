@@ -69,8 +69,8 @@ templ SitesSection(items []gen.ListSitesRow, tenants []gen.Tenant, errMsg string
 				hx-swap="outerHTML"
 			>
 				<div class="form-grid">
-					<label>Name <input type="text" name="name" required placeholder="Copenhagen DC 1"/></label>
-					<label>Slug <input type="text" name="slug" placeholder="derived from name"/></label>
+					<label>Name <input type="text" name="name" required placeholder="Copenhagen DC 1" data-slug-source/></label>
+					@SlugField("", false)
 					<label>Status @statusSelect("active")</label>
 					<label>Tenant @tenantSelect(tenants, "")</label>
 					<label class="span-2">Description <input type="text" name="description"/></label>
@@ -144,8 +144,8 @@ templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.Tenant, tre
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug) }>
 						<div class="form-grid">
-							<label>Name <input type="text" name="name" value={ site.Name } required/></label>
-							<label>Slug <input type="text" name="slug" value={ site.Slug } required/></label>
+							<label>Name <input type="text" name="name" value={ site.Name } required data-slug-source/></label>
+							@SlugField(site.Slug, true)
 							<label>Status @statusSelect(site.Status)</label>
 							<label>Tenant @tenantSelect(tenants, tenantSlug)</label>
 							<label>Facility <input type="text" name="facility" value={ site.Facility }/></label>
@@ -169,8 +169,8 @@ templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.Tenant, tre
 					<summary>Add location</summary>
 					<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug + "/locations") }>
 						<div class="form-grid">
-							<label>Name <input type="text" name="name" required placeholder="Building A"/></label>
-							<label>Slug <input type="text" name="slug" placeholder="derived from name"/></label>
+							<label>Name <input type="text" name="name" required placeholder="Building A" data-slug-source/></label>
+							@SlugField("", false)
 							<label>Kind @kindSelect("area")</label>
 							<label>Parent
 								<select name="parent">
