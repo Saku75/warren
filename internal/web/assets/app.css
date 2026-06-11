@@ -610,3 +610,125 @@ dl.facts dd {
 .loc-tree .badge {
 	margin-right: 0.3rem;
 }
+
+/* ---- auth ---- */
+
+.login-body {
+	display: grid;
+	place-items: center;
+	min-height: 100vh;
+}
+
+.login-box {
+	width: min(22rem, 90vw);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	box-shadow: var(--shadow);
+	padding: 2rem;
+}
+
+.login-brand {
+	justify-content: center;
+	margin-bottom: 1.25rem;
+	font-size: 1.2rem;
+}
+
+.login-grid {
+	grid-template-columns: 1fr;
+}
+
+.btn-wide {
+	width: 100%;
+}
+
+.btn-ghost {
+	background: transparent;
+	border-color: var(--border);
+	color: var(--muted);
+	text-decoration: none;
+	display: inline-block;
+}
+
+.btn-ghost:hover {
+	color: var(--fg);
+	border-color: var(--muted);
+	filter: none;
+}
+
+a.btn {
+	text-decoration: none;
+	display: inline-block;
+}
+
+.user-box {
+	margin-top: auto;
+	border-top: 1px solid var(--border);
+	padding: 0.75rem 0.5rem 0.25rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+	font-size: 0.8125rem;
+}
+
+.user-id {
+	display: flex;
+	flex-direction: column;
+	gap: 0.1rem;
+}
+
+.user-name {
+	font-weight: 600;
+}
+
+.user-actions {
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+}
+
+.user-actions a {
+	text-decoration: none;
+}
+
+.btn-plain {
+	font: inherit;
+	font-size: 0.8125rem;
+	background: none;
+	border: none;
+	padding: 0;
+	color: var(--danger);
+	cursor: pointer;
+}
+
+.btn-plain:hover {
+	text-decoration: underline;
+}
+
+.token-reveal {
+	border-color: var(--ok-bd);
+	background: var(--ok-bg);
+	color: var(--ok-fg);
+}
+
+.token-value {
+	display: block;
+	margin-top: 0.5rem;
+	padding: 0.6rem 0.8rem;
+	font-size: 0.95rem;
+	user-select: all;
+	overflow-wrap: anywhere;
+}
+
+.check-label span {
+	display: flex;
+	align-items: center;
+	gap: 0.45rem;
+	padding-top: 1.4rem;
+	color: var(--fg);
+}
+
+.check-label input[type="checkbox"] {
+	width: auto;
+	min-width: 0;
+}

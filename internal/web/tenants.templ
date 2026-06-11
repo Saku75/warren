@@ -69,6 +69,7 @@ templ TenantFormPage(in tenancy.Input, parents []tree.Flat[gen.Tenant], errMsg s
 		@Alert(errMsg)
 		<section class="card form-card">
 			<form method="post" action="/tenancy/tenants">
+				@CSRFField()
 				<div class="form-grid">
 					<label>
 						Name
@@ -126,6 +127,7 @@ templ TenantDetailPage(t gen.Tenant, parentSlug string, parentName string, paren
 				<section class="card">
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/tenancy/tenants/" + t.Slug) }>
+				@CSRFField()
 						<div class="form-grid">
 							<label>
 								Name

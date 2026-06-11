@@ -119,6 +119,7 @@ templ SiteFormPage(in dcim.SiteInput, tenants []gen.ListTenantsRow, groups []tre
 		@Alert(errMsg)
 		<section class="card form-card">
 			<form method="post" action="/dcim/sites">
+				@CSRFField()
 				<div class="form-grid">
 					<label>
 						Name
@@ -201,6 +202,7 @@ templ SiteDetailPage(site gen.Site, tenantSlug string, tenants []gen.ListTenants
 				<section class="card">
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug) }>
+				@CSRFField()
 						<div class="form-grid">
 							<label>
 								Name

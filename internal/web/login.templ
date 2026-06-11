@@ -1,0 +1,41 @@
+package web
+
+// LoginPage is a standalone page (no app shell — nothing to navigate to
+// while anonymous). csrf is the double-submit cookie value.
+templ LoginPage(next string, csrf string, errMsg string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Sign in · Warren</title>
+			<link rel="stylesheet" href="/assets/app.css"/>
+		</head>
+		<body class="login-body">
+			<main class="login-box">
+				<div class="brand login-brand">
+					<span class="brand-mark">W</span>
+					<span>Warren</span>
+				</div>
+				@Alert(errMsg)
+				<form method="post" action="/login">
+					<input type="hidden" name="_csrf" value={ csrf }/>
+					<input type="hidden" name="next" value={ next }/>
+					<div class="form-grid login-grid">
+						<label>
+							Username
+							<input type="text" name="username" required autofocus autocomplete="username"/>
+						</label>
+						<label>
+							Password
+							<input type="password" name="password" required autocomplete="current-password"/>
+						</label>
+					</div>
+					<div class="form-actions">
+						<button type="submit" class="btn btn-wide">Sign in</button>
+					</div>
+				</form>
+			</main>
+		</body>
+	</html>
+}

@@ -10,6 +10,16 @@ import (
 	"github.com/google/uuid"
 )
 
+type ApiToken struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	Name       string
+	TokenHash  []byte
+	CreatedAt  time.Time
+	ExpiresAt  *time.Time
+	LastUsedAt *time.Time
+}
+
 type Changelog struct {
 	ID          uuid.UUID
 	EventAt     time.Time
@@ -34,6 +44,18 @@ type Location struct {
 	Description string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type Session struct {
+	ID         uuid.UUID
+	UserID     uuid.UUID
+	TokenHash  []byte
+	CsrfToken  string
+	Ip         string
+	UserAgent  string
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
 }
 
 type Site struct {
@@ -69,4 +91,19 @@ type Tenant struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	ParentID    *uuid.UUID
+}
+
+type User struct {
+	ID           uuid.UUID
+	Username     string
+	DisplayName  string
+	Email        string
+	Provider     string
+	ExternalID   string
+	PasswordHash *string
+	IsAdmin      bool
+	Disabled     bool
+	LastLoginAt  *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/saku75/warren/internal/api"
+	"github.com/saku75/warren/internal/auth"
 	"github.com/saku75/warren/internal/changelog"
 	"github.com/saku75/warren/internal/config"
 	"github.com/saku75/warren/internal/db"
@@ -40,6 +41,8 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 	tenancySvc := tenancy.NewService(pool)
 	dcimSvc := dcim.NewService(pool)
 	changelogSvc := changelog.NewService(gen.New(pool))
+	authSvc := auth.NewService(pool)
+	ah := &authHandlers{log: log, auth: authSvc, cookieSecure: cfg.CookieSecure}
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -47,6 +50,7 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 	r.Use(requestLogger(log))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
+	r.Use(ah.loadSession)
 
 	// Probes: /healthz is liveness (process up); /readyz gates on database
 	// reachability and schema currency so replicas built for a different
@@ -58,12 +62,29 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 	// the container needs no CDN and no filesystem.
 	r.Handle("/assets/*", http.StripPrefix("/assets/", web.AssetHandler()))
 
-	// REST API v1.
-	r.Mount("/api/v1", api.New(log, tenancySvc, dcimSvc, changelogSvc).Routes())
+	// Login is the only anonymous page.
+	r.Get("/login", ah.getLogin)
+	r.Post("/login", ah.postLogin)
 
-	// HTMX UI. CSRF protection lands together with sessions/auth.
-	ui := &uiHandler{log: log, version: version, tenancy: tenancySvc, dcim: dcimSvc, changelog: changelogSvc}
-	ui.routes(r)
+	// REST API v1: bearer tokens only (design doc 0002 §3).
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Use(ah.requireAPI)
+		r.Mount("/", api.New(log, tenancySvc, dcimSvc, changelogSvc, authSvc).Routes())
+	})
+
+	// HTMX UI: session + CSRF behind the login wall.
+	ui := &uiHandler{log: log, version: version, tenancy: tenancySvc, dcim: dcimSvc, changelog: changelogSvc, auth: authSvc}
+	r.Group(func(r chi.Router) {
+		r.Use(ah.requireUI)
+		r.Use(ah.csrfUI)
+		r.Post("/logout", ah.postLogout)
+		ui.routes(r)
+		ui.profileRoutes(r)
+		r.Group(func(r chi.Router) {
+			r.Use(ah.requireAdminUI)
+			ui.userRoutes(r)
+		})
+	})
 
 	s.http = &http.Server{
 		Addr:              cfg.Listen,
@@ -71,6 +92,11 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	return s
+}
+
+// Handler exposes the assembled router (tests drive it via httptest).
+func (s *Server) Handler() http.Handler {
+	return s.http.Handler
 }
 
 // Run serves until ctx is cancelled (SIGTERM/SIGINT), then drains in-flight

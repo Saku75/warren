@@ -3,13 +3,19 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"golang.org/x/term"
+
+	"github.com/saku75/warren/internal/auth"
 	"github.com/saku75/warren/internal/config"
 	"github.com/saku75/warren/internal/db"
 	"github.com/saku75/warren/internal/server"
@@ -30,16 +36,75 @@ func main() {
 		err = serve()
 	case "migrate":
 		err = migrate()
+	case "user":
+		err = userCmd(os.Args[2:])
 	case "version":
 		fmt.Println(version)
 	default:
-		fmt.Fprintf(os.Stderr, "warren: unknown command %q\n\nusage: warren [serve|migrate|version]\n", cmd)
+		fmt.Fprintf(os.Stderr, "warren: unknown command %q\n\nusage: warren [serve|migrate|user|version]\n", cmd)
 		os.Exit(2)
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "warren:", err)
 		os.Exit(1)
 	}
+}
+
+// userCmd manages user accounts from the CLI; `user create` is the
+// bootstrap path for the first administrator. The password is read from
+// stdin so it never appears in argv or the environment.
+func userCmd(args []string) error {
+	if len(args) < 1 || args[0] != "create" {
+		return fmt.Errorf("usage: warren user create -username <u> [-name <display>] [-email <e>] [-admin] (password on stdin)")
+	}
+
+	fs := flag.NewFlagSet("user create", flag.ContinueOnError)
+	username := fs.String("username", "", "username (required)")
+	name := fs.String("name", "", "display name")
+	email := fs.String("email", "", "email address")
+	admin := fs.Bool("admin", false, "grant administrator access")
+	if err := fs.Parse(args[1:]); err != nil {
+		return err
+	}
+	if *username == "" {
+		return fmt.Errorf("user create: -username is required")
+	}
+
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		fmt.Fprint(os.Stderr, "Password: ")
+	}
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
+		return fmt.Errorf("user create: reading password from stdin: %w", scanner.Err())
+	}
+	password := strings.TrimSpace(scanner.Text())
+
+	log, cfg, err := setup()
+	if err != nil {
+		return err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	u, err := auth.NewService(pool).CreateLocalUser(ctx, auth.UserInput{
+		Username:    *username,
+		DisplayName: *name,
+		Email:       *email,
+		Password:    password,
+		IsAdmin:     *admin,
+	})
+	if err != nil {
+		return err
+	}
+	log.Info("user created", "username", u.Username, "id", u.ID, "admin", u.IsAdmin)
+	return nil
 }
 
 func setup() (*slog.Logger, config.Config, error) {

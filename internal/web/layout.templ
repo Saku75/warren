@@ -1,10 +1,20 @@
 package web
 
 import (
+	"encoding/json"
+
 	"github.com/google/uuid"
 
+	"github.com/saku75/warren/internal/auth"
 	"github.com/saku75/warren/internal/core/tree"
 )
+
+// csrfHeaders renders the htmx global-header attribute so hx-delete and
+// friends carry the session CSRF token.
+func csrfHeaders(token string) string {
+	b, _ := json.Marshal(map[string]string{"X-CSRF-Token": token})
+	return string(b)
+}
 
 // Layout is the application shell: sidebar navigation plus a content
 // column. section marks the active nav entry ("dashboard", "tenants",
@@ -20,7 +30,7 @@ templ Layout(title string, section string) {
 			<script src="/assets/htmx.min.js" defer></script>
 			<script src="/assets/app.js" defer></script>
 		</head>
-		<body>
+		<body hx-headers={ csrfHeaders(auth.CSRFFrom(ctx)) }>
 			<div class="shell">
 				<aside class="sidebar">
 					<a class="brand" href="/">
@@ -36,7 +46,11 @@ templ Layout(title string, section string) {
 						@navLink("/dcim/site-groups", "Site groups", section == "site-groups")
 						<span class="nav-group">System</span>
 						@navLink("/changelog", "Changelog", section == "changelog")
+						if u, ok := auth.UserFrom(ctx); ok && u.IsAdmin {
+							@navLink("/system/users", "Users", section == "users")
+						}
 					</nav>
+					@userBox()
 				</aside>
 				<main class="content">
 					{ children... }
@@ -48,6 +62,32 @@ templ Layout(title string, section string) {
 
 templ navLink(href string, label string, active bool) {
 	<a href={ templ.URL(href) } class={ "nav-link", templ.KV("active", active) }>{ label }</a>
+}
+
+// userBox is the signed-in footer of the sidebar.
+templ userBox() {
+	if u, ok := auth.UserFrom(ctx); ok {
+		<div class="user-box">
+			<div class="user-id">
+				if u.DisplayName != "" {
+					<span class="user-name">{ u.DisplayName }</span>
+				}
+				<code>{ u.Username }</code>
+			</div>
+			<div class="user-actions">
+				<a href="/profile/tokens">API tokens</a>
+				<form method="post" action="/logout">
+					@CSRFField()
+					<button type="submit" class="btn-plain">Sign out</button>
+				</form>
+			</div>
+		</div>
+	}
+}
+
+// CSRFField embeds the session CSRF token in a mutating form.
+templ CSRFField() {
+	<input type="hidden" name="_csrf" value={ auth.CSRFFrom(ctx) }/>
 }
 
 // Alert renders an error banner.

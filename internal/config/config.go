@@ -24,6 +24,9 @@ type Config struct {
 	// run `warren migrate` as a release step instead (the advisory lock
 	// makes either safe).
 	AutoMigrate bool
+	// CookieSecure marks session cookies Secure. Enable whenever Warren
+	// is served over HTTPS (directly or behind a TLS-terminating proxy).
+	CookieSecure bool
 	// ShutdownGrace is how long in-flight requests get to finish after
 	// SIGTERM before the server exits. Keep it below the orchestrator's
 	// termination grace period.
@@ -46,6 +49,14 @@ func FromEnv() (Config, error) {
 			return Config{}, fmt.Errorf("config: WARREN_AUTO_MIGRATE: %w", err)
 		}
 		cfg.AutoMigrate = b
+	}
+
+	if v := os.Getenv("WARREN_COOKIE_SECURE"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return Config{}, fmt.Errorf("config: WARREN_COOKIE_SECURE: %w", err)
+		}
+		cfg.CookieSecure = b
 	}
 
 	if v := os.Getenv("WARREN_SHUTDOWN_GRACE"); v != "" {

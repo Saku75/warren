@@ -20,9 +20,25 @@ const (
 	ActionDelete = "delete"
 )
 
-// SystemActor attributes mutations made before authentication exists.
-// When auth lands, entries carry the acting user instead.
+// SystemActor attributes mutations made outside a user context (CLI,
+// migrations). Authenticated requests carry the username via WithActor.
 const SystemActor = "system"
+
+type actorKey struct{}
+
+// WithActor attaches the acting username to the context; the auth
+// middleware calls this for every authenticated request.
+func WithActor(ctx context.Context, username string) context.Context {
+	return context.WithValue(ctx, actorKey{}, username)
+}
+
+// ActorFrom returns the acting username, defaulting to SystemActor.
+func ActorFrom(ctx context.Context) string {
+	if v, ok := ctx.Value(actorKey{}).(string); ok && v != "" {
+		return v
+	}
+	return SystemActor
+}
 
 // Record writes one entry using q, which must be bound to the same
 // transaction as the mutation being recorded. before/after are object
@@ -44,7 +60,7 @@ func Record(ctx context.Context, q *gen.Queries, action, objectType string, obje
 	}
 	return q.InsertChangelogEntry(ctx, gen.InsertChangelogEntryParams{
 		ID:          id.New(),
-		Actor:       SystemActor,
+		Actor:       ActorFrom(ctx),
 		Action:      action,
 		ObjectType:  objectType,
 		ObjectID:    objectID,

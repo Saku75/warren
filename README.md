@@ -10,14 +10,17 @@ long-standing quirks (identifier sprawl, globally-unique slugs, duplicated
 component models). It is built from day one to run as stateless container
 replicas with PostgreSQL as the only stateful service.
 
-**Status: Phase 1 — organization (complete).** Working now: hierarchical
-tenants (a tenant can have a parent tenant, and every level is directly
+**Status: Phase 2 — auth & access (in progress).** Phase 1 shipped the
+organization layer: hierarchical tenants (every level directly
 assignable), sites and site groups (one nestable tree with region/group
-kinds, replacing NetBox's Region + SiteGroup split), nested location
-trees with scoped slugs and path addressing; a change log written
-transactionally with every mutation; the REST API and HTMX UI for all of
-it; advisory-locked schema migrations; readiness gating on schema
-currency. Next: Phase 2 — auth & access (local, LDAP, OIDC SSO). See the
+kinds), nested location trees with scoped slugs and path addressing, a
+transactional change log, and the REST API + HTMX UI for all of it.
+Phase 2 has landed local authentication: argon2id passwords, DB-backed
+sessions (replica-safe), CSRF protection, a login wall over the whole
+app, bearer-token API auth, user management, and per-user API tokens —
+with the change log now attributing every mutation to the acting user.
+Still to come in Phase 2: LDAP and OIDC SSO providers (designed in
+[docs/design/0002-auth.md](docs/design/0002-auth.md)). See the
 [roadmap](docs/design/0001-foundations.md#7-roadmap).
 
 ## Design in one paragraph
@@ -48,6 +51,9 @@ docker compose up --build
 export WARREN_DATABASE_URL=postgres://user:pass@localhost:5432/warren
 go run ./cmd/warren serve     # auto-migrates by default
 go run ./cmd/warren migrate   # or migrate explicitly (HA release step)
+
+# bootstrap the first administrator (password on stdin), then sign in
+go run ./cmd/warren user create -username admin -admin
 ```
 
 Configuration is environment-only:
@@ -57,19 +63,22 @@ Configuration is environment-only:
 | `WARREN_LISTEN`         | `:8080` | HTTP listen address                       |
 | `WARREN_DATABASE_URL`   | —       | PostgreSQL DSN (required)                 |
 | `WARREN_AUTO_MIGRATE`   | `true`  | apply migrations on boot (off for HA; run `warren migrate` instead) |
+| `WARREN_COOKIE_SECURE`  | `false` | mark session cookies Secure (enable behind HTTPS) |
 | `WARREN_SHUTDOWN_GRACE` | `15s`   | drain window after SIGTERM                |
 
 ## API
 
-`/api/v1` speaks JSON. Reference segments accept an object ID (UUIDv7) or
-the slug form — a slug path for parent-scoped types:
+`/api/v1` speaks JSON and authenticates with bearer tokens (create one
+under *API tokens* in the UI). Reference segments accept an object ID
+(UUIDv7) or the slug form — a slug path for parent-scoped types:
 
 ```sh
-curl -s localhost:8080/api/v1/tenancy/tenants -d '{"name": "Lund Networks"}'
-curl -s localhost:8080/api/v1/dcim/sites -d '{"name": "Copenhagen DC 1", "tenant": "lund-networks"}'
-curl -s localhost:8080/api/v1/dcim/locations -d '{"site": "copenhagen-dc-1", "name": "Building A", "kind": "building"}'
-curl -s localhost:8080/api/v1/dcim/locations/copenhagen-dc-1/building-a
-curl -s localhost:8080/api/v1/changelog
+export TOKEN=wrt_…
+curl -s -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/tenancy/tenants -d '{"name": "Lund Networks"}'
+curl -s -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/dcim/sites -d '{"name": "Copenhagen DC 1", "tenant": "lund-networks"}'
+curl -s -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/dcim/locations -d '{"site": "copenhagen-dc-1", "name": "Building A", "kind": "building"}'
+curl -s -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/dcim/locations/copenhagen-dc-1/building-a
+curl -s -H "Authorization: Bearer $TOKEN" localhost:8080/api/v1/changelog
 ```
 
 Lists return `{"items": …, "total": …, "limit": …, "offset": …}`; errors

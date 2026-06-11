@@ -9,6 +9,7 @@ import (
 	"github.com/a-h/templ"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/saku75/warren/internal/auth"
 	"github.com/saku75/warren/internal/changelog"
 	"github.com/saku75/warren/internal/core/fault"
 	"github.com/saku75/warren/internal/dcim"
@@ -29,6 +30,7 @@ type uiHandler struct {
 	tenancy   *tenancy.Service
 	dcim      *dcim.Service
 	changelog *changelog.Service
+	auth      *auth.Service
 }
 
 // uiListLimit caps UI lists until list pagination ships.

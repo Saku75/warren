@@ -21,6 +21,7 @@ templ LocationFormPage(site gen.Site, in dcim.LocationInput, flat []tree.Flat[ge
 		@Alert(errMsg)
 		<section class="card form-card">
 			<form method="post" action={ templ.URL("/dcim/sites/" + site.Slug + "/locations") }>
+				@CSRFField()
 				<div class="form-grid">
 					<label>
 						Name
@@ -96,6 +97,7 @@ templ LocationDetailPage(loc gen.Location, path string, site gen.Site, children 
 				<section class="card">
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/locations/" + path) }>
+				@CSRFField()
 						<div class="form-grid">
 							<label>
 								Name

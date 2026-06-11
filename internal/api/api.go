@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/saku75/warren/internal/auth"
 	"github.com/saku75/warren/internal/changelog"
 	"github.com/saku75/warren/internal/core/fault"
 	"github.com/saku75/warren/internal/dcim"
@@ -29,10 +30,11 @@ type Handler struct {
 	tenancy   *tenancy.Service
 	dcim      *dcim.Service
 	changelog *changelog.Service
+	auth      *auth.Service
 }
 
-func New(log *slog.Logger, t *tenancy.Service, d *dcim.Service, c *changelog.Service) *Handler {
-	return &Handler{log: log, tenancy: t, dcim: d, changelog: c}
+func New(log *slog.Logger, t *tenancy.Service, d *dcim.Service, c *changelog.Service, a *auth.Service) *Handler {
+	return &Handler{log: log, tenancy: t, dcim: d, changelog: c, auth: a}
 }
 
 // Routes returns the router for mounting at /api/v1.
@@ -71,6 +73,16 @@ func (h *Handler) Routes() chi.Router {
 		r.Get("/*", h.getLocation)
 		r.Patch("/*", h.updateLocation)
 		r.Delete("/*", h.deleteLocation)
+	})
+
+	// User management is admin-only.
+	r.Route("/auth/users", func(r chi.Router) {
+		r.Use(h.requireAdminAPI)
+		r.Get("/", h.listUsers)
+		r.Post("/", h.createUser)
+		r.Get("/{ref}", h.getUser)
+		r.Patch("/{ref}", h.updateUser)
+		r.Delete("/{ref}", h.deleteUser)
 	})
 
 	r.Get("/changelog", h.listChangelog)

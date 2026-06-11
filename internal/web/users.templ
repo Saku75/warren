@@ -1,0 +1,214 @@
+package web
+
+import (
+	"github.com/saku75/warren/internal/auth"
+	"github.com/saku75/warren/internal/db/gen"
+)
+
+// UsersPage lists user accounts (admin only).
+templ UsersPage(items []gen.User, errMsg string) {
+	@Layout("Users", "users") {
+		<header class="page-header">
+			<h1>Users</h1>
+			<div class="page-actions">
+				<a class="btn" href="/system/users/new">Add user</a>
+			</div>
+		</header>
+		@UsersSection(items, errMsg)
+	}
+}
+
+templ UsersSection(items []gen.User, errMsg string) {
+	<section id="users-section">
+		@Alert(errMsg)
+		<div class="card table-card">
+			<table class="objects">
+				<thead>
+					<tr><th>Username</th><th>Name</th><th>Provider</th><th>Role</th><th>Status</th><th>Last login</th><th></th></tr>
+				</thead>
+				<tbody>
+					for _, u := range items {
+						<tr>
+							<td><a class="obj-link" href={ templ.URL("/system/users/" + u.Username) }><code>{ u.Username }</code></a></td>
+							<td>{ u.DisplayName }</td>
+							<td><span class="chip">{ u.Provider }</span></td>
+							<td>
+								if u.IsAdmin {
+									<span class="badge badge-staging">admin</span>
+								} else {
+									<span class="muted">user</span>
+								}
+							</td>
+							<td>
+								if u.Disabled {
+									<span class="badge badge-delete">disabled</span>
+								} else {
+									<span class="badge badge-active">active</span>
+								}
+							</td>
+							<td class="muted">
+								if u.LastLoginAt != nil {
+									{ u.LastLoginAt.Format("2006-01-02 15:04") }
+								} else {
+									never
+								}
+							</td>
+							<td class="row-actions">
+								<button
+									class="btn btn-ghost-danger btn-small"
+									hx-delete={ "/system/users/" + u.Username }
+									hx-target="#users-section"
+									hx-swap="outerHTML"
+									hx-confirm={ "Delete user " + u.Username + "?" }
+								>Delete</button>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</section>
+}
+
+// UserFormPage is the standalone create form for local users.
+templ UserFormPage(in auth.UserInput, errMsg string) {
+	@Layout("Add user", "users") {
+		<nav class="crumbs"><a href="/system/users">Users</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header">
+			<h1>Add user</h1>
+		</header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/system/users">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Username
+						<input type="text" name="username" value={ in.Username } required placeholder="lvmann"/>
+					</label>
+					<label>
+						Display name
+						<input type="text" name="display_name" value={ in.DisplayName }/>
+					</label>
+					<label>
+						Email
+						<input type="email" name="email" value={ in.Email }/>
+					</label>
+					<label>
+						Password
+						<input type="password" name="password" required autocomplete="new-password"/>
+					</label>
+					<label class="check-label">
+						<span>
+							<input type="checkbox" name="is_admin" value="true" checked?={ in.IsAdmin }/>
+							Administrator
+						</span>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create user</button>
+					<a class="btn btn-ghost" href="/system/users">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+// UserDetailPage shows and edits one user.
+templ UserDetailPage(u gen.User, errMsg string) {
+	@Layout(u.Username, "users") {
+		<nav class="crumbs"><a href="/system/users">Users</a> <span>/</span> <span>{ u.Username }</span></nav>
+		<header class="page-header">
+			<h1>
+				{ u.Username }
+				if u.IsAdmin {
+					<span class="badge badge-staging">admin</span>
+				}
+				if u.Disabled {
+					<span class="badge badge-delete">disabled</span>
+				}
+			</h1>
+			<div class="page-actions">
+				<button
+					class="btn btn-ghost-danger"
+					hx-delete={ "/system/users/" + u.Username }
+					hx-confirm={ "Delete user " + u.Username + "?" }
+				>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "auth.user:" + u.Username }</code></dd>
+						<dt>ID</dt><dd><code>{ u.ID.String() }</code></dd>
+						<dt>Provider</dt><dd><span class="chip">{ u.Provider }</span></dd>
+						<dt>Last login</dt>
+						<dd>
+							if u.LastLoginAt != nil {
+								{ u.LastLoginAt.Format("2006-01-02 15:04") }
+							} else {
+								<span class="muted">never</span>
+							}
+						</dd>
+						<dt>Created</dt><dd>{ u.CreatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/system/users/" + u.Username) }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								Username
+								<input type="text" name="username" value={ u.Username } required/>
+							</label>
+							<label>
+								Display name
+								<input type="text" name="display_name" value={ u.DisplayName }/>
+							</label>
+							<label>
+								Email
+								<input type="email" name="email" value={ u.Email }/>
+							</label>
+							<label class="check-label">
+								<span>
+									<input type="checkbox" name="is_admin" value="true" checked?={ u.IsAdmin }/>
+									Administrator
+								</span>
+							</label>
+							<label class="check-label">
+								<span>
+									<input type="checkbox" name="disabled" value="true" checked?={ u.Disabled }/>
+									Disabled
+								</span>
+							</label>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="btn">Save changes</button>
+						</div>
+					</form>
+				</section>
+			</div>
+			if u.Provider == "local" {
+				<section class="card">
+					<header class="card-head"><h2>Set password</h2></header>
+					<form method="post" action={ templ.URL("/system/users/" + u.Username + "/password") }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								New password
+								<input type="password" name="password" required autocomplete="new-password"/>
+							</label>
+						</div>
+						<div class="form-actions">
+							<button type="submit" class="btn">Set password</button>
+						</div>
+					</form>
+				</section>
+			}
+		</div>
+	}
+}

@@ -66,6 +66,7 @@ templ SiteGroupFormPage(in dcim.SiteGroupInput, groups []tree.Flat[gen.SiteGroup
 		@Alert(errMsg)
 		<section class="card form-card">
 			<form method="post" action="/dcim/site-groups">
+				@CSRFField()
 				<div class="form-grid">
 					<label>
 						Name
@@ -126,6 +127,7 @@ templ SiteGroupDetailPage(g gen.SiteGroup, path string, children []gen.SiteGroup
 				<section class="card">
 					<header class="card-head"><h2>Edit</h2></header>
 					<form method="post" action={ templ.URL("/dcim/site-groups/" + path) }>
+				@CSRFField()
 						<div class="form-grid">
 							<label>
 								Name

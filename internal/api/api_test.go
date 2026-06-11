@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/saku75/warren/internal/auth"
 	"github.com/saku75/warren/internal/changelog"
 	"github.com/saku75/warren/internal/core/id"
 	"github.com/saku75/warren/internal/db/dbtest"
@@ -25,8 +26,18 @@ func testServer(t *testing.T) *httptest.Server {
 		tenancy.NewService(pool),
 		dcim.NewService(pool),
 		changelog.NewService(gen.New(pool)),
+		auth.NewService(pool),
 	)
-	srv := httptest.NewServer(h.Routes())
+	// Token enforcement lives in the server package; these tests exercise
+	// the handlers directly with an admin identity injected, the way the
+	// middleware would after validating a bearer token.
+	admin := gen.User{ID: id.New(), Username: "test-admin", IsAdmin: true}
+	withAdmin := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(auth.WithUser(r.Context(), admin)))
+		})
+	}
+	srv := httptest.NewServer(withAdmin(h.Routes()))
 	t.Cleanup(srv.Close)
 	return srv
 }
