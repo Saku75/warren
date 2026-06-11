@@ -44,6 +44,10 @@ templ Layout(title string, section string) {
 						<span class="nav-group">DCIM</span>
 						@navLink("/dcim/sites", "Sites", section == "sites")
 						@navLink("/dcim/site-groups", "Site groups", section == "site-groups")
+						@navLink("/dcim/device-types", "Device types", section == "device-types")
+						@navLink("/dcim/module-types", "Module types", section == "module-types")
+						@navLink("/dcim/manufacturers", "Manufacturers", section == "manufacturers")
+						@navLink("/dcim/device-roles", "Device roles", section == "device-roles")
 						<span class="nav-group">System</span>
 						@navLink("/changelog", "Changelog", section == "changelog")
 						if u, ok := auth.UserFrom(ctx); ok && u.IsAdmin {

@@ -752,3 +752,17 @@ a.btn {
 .sso-btn {
 	text-align: center;
 }
+
+.color-dot {
+	display: inline-block;
+	width: 0.9rem;
+	height: 0.9rem;
+	border-radius: 50%;
+	border: 1px solid var(--border);
+	vertical-align: middle;
+}
+
+input[type="color"] {
+	padding: 0.15rem;
+	height: 2.3rem;
+}

@@ -92,6 +92,7 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 		r.Post("/logout", ah.postLogout)
 		ui.routes(r)
 		ui.profileRoutes(r)
+		ui.catalogRoutes(r)
 		r.Group(func(r chi.Router) {
 			r.Use(ah.requireAdminUI)
 			ui.userRoutes(r)

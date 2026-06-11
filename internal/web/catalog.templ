@@ -1,0 +1,635 @@
+package web
+
+import (
+	"fmt"
+	"github.com/saku75/warren/internal/db/gen"
+	"github.com/saku75/warren/internal/dcim"
+)
+
+// ManufacturersPage lists manufacturers.
+templ ManufacturersPage(items []gen.Manufacturer, errMsg string) {
+	@Layout("Manufacturers", "manufacturers") {
+		<header class="page-header">
+			<h1>Manufacturers</h1>
+			<div class="page-actions"><a class="btn" href="/dcim/manufacturers/new">Add manufacturer</a></div>
+		</header>
+		<section id="manufacturers-section">
+			@Alert(errMsg)
+			<div class="card table-card">
+				<table class="objects">
+					<thead><tr><th>Name</th><th>Slug</th><th>Description</th><th></th></tr></thead>
+					<tbody>
+						if len(items) == 0 {
+							<tr><td colspan="4" class="empty">No manufacturers yet — <a href="/dcim/manufacturers/new">add the first one</a>.</td></tr>
+						}
+						for _, m := range items {
+							<tr>
+								<td><a class="obj-link" href={ templ.URL("/dcim/manufacturers/" + m.Slug) }>{ m.Name }</a></td>
+								<td><code>{ m.Slug }</code></td>
+								<td class="muted">{ m.Description }</td>
+								<td class="row-actions">
+									<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/manufacturers/" + m.Slug } hx-target="#manufacturers-section" hx-swap="outerHTML" hx-confirm={ "Delete manufacturer " + m.Name + "?" }>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	}
+}
+
+// ManufacturerFormPage is the standalone create form.
+templ ManufacturerFormPage(in dcim.ManufacturerInput, errMsg string) {
+	@Layout("Add manufacturer", "manufacturers") {
+		<nav class="crumbs"><a href="/dcim/manufacturers">Manufacturers</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header"><h1>Add manufacturer</h1></header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/manufacturers">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="Cisco" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create manufacturer</button>
+					<a class="btn btn-ghost" href="/dcim/manufacturers">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+// ManufacturerDetailPage shows one manufacturer and its catalog.
+templ ManufacturerDetailPage(m gen.Manufacturer, deviceTypes []gen.DeviceType, moduleTypes []gen.ModuleType, errMsg string) {
+	@Layout(m.Name, "manufacturers") {
+		<nav class="crumbs"><a href="/dcim/manufacturers">Manufacturers</a> <span>/</span> <span>{ m.Name }</span></nav>
+		<header class="page-header">
+			<h1>{ m.Name }</h1>
+			<div class="page-actions">
+				<button class="btn btn-ghost-danger" hx-delete={ "/dcim/manufacturers/" + m.Slug } hx-confirm={ "Delete manufacturer " + m.Name + "?" }>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "dcim.manufacturer:" + m.Slug }</code></dd>
+						<dt>ID</dt><dd><code>{ m.ID.String() }</code></dd>
+						<dt>Created</dt><dd>{ m.CreatedAt.Format("2006-01-02 15:04") }</dd>
+						<dt>Updated</dt><dd>{ m.UpdatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/dcim/manufacturers/" + m.Slug) }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								Name
+								<input type="text" name="name" value={ m.Name } required data-slug-source/>
+							</label>
+							@SlugField(m.Slug, true)
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ m.Description }/>
+							</label>
+						</div>
+						<div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+					</form>
+				</section>
+			</div>
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Device types</h2></header>
+					if len(deviceTypes) == 0 {
+						<p class="empty">None yet.</p>
+					} else {
+						<ul class="loc-tree">
+							for _, dt := range deviceTypes {
+								<li><a class="obj-link" href={ templ.URL("/dcim/device-types/" + m.Slug + "/" + dt.Slug) }>{ dt.Model }</a> <code>{ dt.Slug }</code></li>
+							}
+						</ul>
+					}
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Module types</h2></header>
+					if len(moduleTypes) == 0 {
+						<p class="empty">None yet.</p>
+					} else {
+						<ul class="loc-tree">
+							for _, mt := range moduleTypes {
+								<li><a class="obj-link" href={ templ.URL("/dcim/module-types/" + m.Slug + "/" + mt.Slug) }>{ mt.Model }</a> <code>{ mt.Slug }</code></li>
+							}
+						</ul>
+					}
+				</section>
+			</div>
+		</div>
+	}
+}
+
+// DeviceRolesPage lists device roles.
+templ DeviceRolesPage(items []gen.DeviceRole, errMsg string) {
+	@Layout("Device roles", "device-roles") {
+		<header class="page-header">
+			<h1>Device roles</h1>
+			<div class="page-actions"><a class="btn" href="/dcim/device-roles/new">Add device role</a></div>
+		</header>
+		<section id="device-roles-section">
+			@Alert(errMsg)
+			<div class="card table-card">
+				<table class="objects">
+					<thead><tr><th>Name</th><th>Slug</th><th>Color</th><th>Description</th><th></th></tr></thead>
+					<tbody>
+						if len(items) == 0 {
+							<tr><td colspan="5" class="empty">No device roles yet — <a href="/dcim/device-roles/new">add the first one</a>.</td></tr>
+						}
+						for _, x := range items {
+							<tr>
+								<td><a class="obj-link" href={ templ.URL("/dcim/device-roles/" + x.Slug) }>{ x.Name }</a></td>
+								<td><code>{ x.Slug }</code></td>
+								<td><span class="color-dot" style={ "background:" + x.Color }></span> <code>{ x.Color }</code></td>
+								<td class="muted">{ x.Description }</td>
+								<td class="row-actions">
+									<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/device-roles/" + x.Slug } hx-target="#device-roles-section" hx-swap="outerHTML" hx-confirm={ "Delete device role " + x.Name + "?" }>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	}
+}
+
+// DeviceRoleFormPage is the standalone create form.
+templ DeviceRoleFormPage(in dcim.DeviceRoleInput, errMsg string) {
+	@Layout("Add device role", "device-roles") {
+		<nav class="crumbs"><a href="/dcim/device-roles">Device roles</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header"><h1>Add device role</h1></header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/device-roles">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="Access switch" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Color
+						<input type="color" name="color" value={ defaultColor(in.Color) }/>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create device role</button>
+					<a class="btn btn-ghost" href="/dcim/device-roles">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+func defaultColor(c string) string {
+	if c == "" {
+		return "#8a5a2b"
+	}
+	return c
+}
+
+// DeviceRoleDetailPage shows and edits one device role.
+templ DeviceRoleDetailPage(x gen.DeviceRole, errMsg string) {
+	@Layout(x.Name, "device-roles") {
+		<nav class="crumbs"><a href="/dcim/device-roles">Device roles</a> <span>/</span> <span>{ x.Name }</span></nav>
+		<header class="page-header">
+			<h1>
+				{ x.Name }
+				<span class="color-dot" style={ "background:" + x.Color }></span>
+			</h1>
+			<div class="page-actions">
+				<button class="btn btn-ghost-danger" hx-delete={ "/dcim/device-roles/" + x.Slug } hx-confirm={ "Delete device role " + x.Name + "?" }>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<section class="card">
+				<header class="card-head"><h2>Details</h2></header>
+				<dl class="facts">
+					<dt>Reference</dt><dd><code>{ "dcim.device-role:" + x.Slug }</code></dd>
+					<dt>ID</dt><dd><code>{ x.ID.String() }</code></dd>
+					<dt>Created</dt><dd>{ x.CreatedAt.Format("2006-01-02 15:04") }</dd>
+					<dt>Updated</dt><dd>{ x.UpdatedAt.Format("2006-01-02 15:04") }</dd>
+				</dl>
+			</section>
+			<section class="card">
+				<header class="card-head"><h2>Edit</h2></header>
+				<form method="post" action={ templ.URL("/dcim/device-roles/" + x.Slug) }>
+					@CSRFField()
+					<div class="form-grid">
+						<label>
+							Name
+							<input type="text" name="name" value={ x.Name } required data-slug-source/>
+						</label>
+						@SlugField(x.Slug, true)
+						<label>
+							Color
+							<input type="color" name="color" value={ x.Color }/>
+						</label>
+						<label class="span-2">
+							Description
+							<input type="text" name="description" value={ x.Description }/>
+						</label>
+					</div>
+					<div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+				</form>
+			</section>
+		</div>
+	}
+}
+
+templ manufacturerSelect(items []gen.Manufacturer, selectedSlug string) {
+	<select name="manufacturer" required>
+		<option value="">— choose —</option>
+		for _, m := range items {
+			<option value={ m.Slug } selected?={ m.Slug == selectedSlug }>{ m.Name }</option>
+		}
+	</select>
+}
+
+// DeviceTypesPage lists device types.
+templ DeviceTypesPage(items []gen.ListDeviceTypesRow, errMsg string) {
+	@Layout("Device types", "device-types") {
+		<header class="page-header">
+			<h1>Device types</h1>
+			<div class="page-actions"><a class="btn" href="/dcim/device-types/new">Add device type</a></div>
+		</header>
+		<section id="device-types-section">
+			@Alert(errMsg)
+			<div class="card table-card">
+				<table class="objects">
+					<thead><tr><th>Model</th><th>Manufacturer</th><th>Part number</th><th>U height</th><th></th></tr></thead>
+					<tbody>
+						if len(items) == 0 {
+							<tr><td colspan="5" class="empty">No device types yet — <a href="/dcim/device-types/new">add the first one</a>.</td></tr>
+						}
+						for _, dt := range items {
+							<tr>
+								<td><a class="obj-link" href={ templ.URL("/dcim/device-types/" + dt.ManufacturerSlug + "/" + dt.Slug) }>{ dt.Model }</a></td>
+								<td><a href={ templ.URL("/dcim/manufacturers/" + dt.ManufacturerSlug) }>{ dt.ManufacturerName }</a></td>
+								<td class="muted">{ dt.PartNumber }</td>
+								<td>{ fmt.Sprintf("%gU", dt.UHeight) }</td>
+								<td class="row-actions">
+									<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/device-types/" + dt.ManufacturerSlug + "/" + dt.Slug } hx-target="#device-types-section" hx-swap="outerHTML" hx-confirm={ "Delete device type " + dt.Model + "?" }>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	}
+}
+
+// DeviceTypeFormPage is the standalone create form.
+templ DeviceTypeFormPage(in dcim.DeviceTypeInput, manufacturers []gen.Manufacturer, errMsg string) {
+	@Layout("Add device type", "device-types") {
+		<nav class="crumbs"><a href="/dcim/device-types">Device types</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header"><h1>Add device type</h1></header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/device-types">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Manufacturer
+						@manufacturerSelect(manufacturers, in.ManufacturerRef)
+					</label>
+					<label>
+						Model
+						<input type="text" name="model" value={ in.Model } required placeholder="Catalyst 9300-48P" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Part number
+						<input type="text" name="part_number" value={ in.PartNumber }/>
+					</label>
+					<label>
+						U height
+						<input type="number" name="u_height" value={ fmt.Sprintf("%g", in.UHeight) } min="0" step="0.5"/>
+					</label>
+					<label class="check-label">
+						<span>
+							<input type="checkbox" name="is_full_depth" value="true" checked?={ in.IsFullDepth }/>
+							Full depth
+						</span>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create device type</button>
+					<a class="btn btn-ghost" href="/dcim/device-types">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+// DeviceTypeDetailPage shows one device type with its templates.
+templ DeviceTypeDetailPage(dt gen.DeviceType, m gen.Manufacturer, templates []gen.ComponentTemplate, errMsg string) {
+	@Layout(dt.Model, "device-types") {
+		<nav class="crumbs"><a href="/dcim/device-types">Device types</a> <span>/</span> <span>{ dt.Model }</span></nav>
+		<header class="page-header">
+			<h1>{ dt.Model }</h1>
+			<div class="page-actions">
+				<button class="btn btn-ghost-danger" hx-delete={ "/dcim/device-types/" + m.Slug + "/" + dt.Slug } hx-confirm={ "Delete device type " + dt.Model + " and its templates?" }>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "dcim.device-type:" + m.Slug + "/" + dt.Slug }</code></dd>
+						<dt>ID</dt><dd><code>{ dt.ID.String() }</code></dd>
+						<dt>Manufacturer</dt><dd><a href={ templ.URL("/dcim/manufacturers/" + m.Slug) }>{ m.Name }</a></dd>
+						if dt.PartNumber != "" {
+							<dt>Part number</dt><dd>{ dt.PartNumber }</dd>
+						}
+						<dt>U height</dt><dd>{ fmt.Sprintf("%gU", dt.UHeight) }</dd>
+						<dt>Full depth</dt><dd>{ fmt.Sprintf("%t", dt.IsFullDepth) }</dd>
+						<dt>Created</dt><dd>{ dt.CreatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/dcim/device-types/" + m.Slug + "/" + dt.Slug) }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								Model
+								<input type="text" name="model" value={ dt.Model } required data-slug-source/>
+							</label>
+							@SlugField(dt.Slug, true)
+							<label>
+								Part number
+								<input type="text" name="part_number" value={ dt.PartNumber }/>
+							</label>
+							<label>
+								U height
+								<input type="number" name="u_height" value={ fmt.Sprintf("%g", dt.UHeight) } min="0" step="0.5"/>
+							</label>
+							<label class="check-label">
+								<span>
+									<input type="checkbox" name="is_full_depth" value="true" checked?={ dt.IsFullDepth }/>
+									Full depth
+								</span>
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ dt.Description }/>
+							</label>
+						</div>
+						<div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+					</form>
+				</section>
+			</div>
+			@TemplatesCard("/dcim/device-types/"+m.Slug+"/"+dt.Slug, templates, errMsg)
+		</div>
+	}
+}
+
+// ModuleTypesPage lists module types.
+templ ModuleTypesPage(items []gen.ListModuleTypesRow, errMsg string) {
+	@Layout("Module types", "module-types") {
+		<header class="page-header">
+			<h1>Module types</h1>
+			<div class="page-actions"><a class="btn" href="/dcim/module-types/new">Add module type</a></div>
+		</header>
+		<section id="module-types-section">
+			@Alert(errMsg)
+			<div class="card table-card">
+				<table class="objects">
+					<thead><tr><th>Model</th><th>Manufacturer</th><th>Part number</th><th></th></tr></thead>
+					<tbody>
+						if len(items) == 0 {
+							<tr><td colspan="4" class="empty">No module types yet — <a href="/dcim/module-types/new">add the first one</a>.</td></tr>
+						}
+						for _, mt := range items {
+							<tr>
+								<td><a class="obj-link" href={ templ.URL("/dcim/module-types/" + mt.ManufacturerSlug + "/" + mt.Slug) }>{ mt.Model }</a></td>
+								<td><a href={ templ.URL("/dcim/manufacturers/" + mt.ManufacturerSlug) }>{ mt.ManufacturerName }</a></td>
+								<td class="muted">{ mt.PartNumber }</td>
+								<td class="row-actions">
+									<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/module-types/" + mt.ManufacturerSlug + "/" + mt.Slug } hx-target="#module-types-section" hx-swap="outerHTML" hx-confirm={ "Delete module type " + mt.Model + "?" }>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	}
+}
+
+// ModuleTypeFormPage is the standalone create form.
+templ ModuleTypeFormPage(in dcim.ModuleTypeInput, manufacturers []gen.Manufacturer, errMsg string) {
+	@Layout("Add module type", "module-types") {
+		<nav class="crumbs"><a href="/dcim/module-types">Module types</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header"><h1>Add module type</h1></header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/module-types">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Manufacturer
+						@manufacturerSelect(manufacturers, in.ManufacturerRef)
+					</label>
+					<label>
+						Model
+						<input type="text" name="model" value={ in.Model } required placeholder="C9300-NM-8X" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Part number
+						<input type="text" name="part_number" value={ in.PartNumber }/>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create module type</button>
+					<a class="btn btn-ghost" href="/dcim/module-types">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+// ModuleTypeDetailPage shows one module type with its templates —
+// including module-bay templates, which is what lets modules nest.
+templ ModuleTypeDetailPage(mt gen.ModuleType, m gen.Manufacturer, templates []gen.ComponentTemplate, errMsg string) {
+	@Layout(mt.Model, "module-types") {
+		<nav class="crumbs"><a href="/dcim/module-types">Module types</a> <span>/</span> <span>{ mt.Model }</span></nav>
+		<header class="page-header">
+			<h1>{ mt.Model }</h1>
+			<div class="page-actions">
+				<button class="btn btn-ghost-danger" hx-delete={ "/dcim/module-types/" + m.Slug + "/" + mt.Slug } hx-confirm={ "Delete module type " + mt.Model + " and its templates?" }>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "dcim.module-type:" + m.Slug + "/" + mt.Slug }</code></dd>
+						<dt>ID</dt><dd><code>{ mt.ID.String() }</code></dd>
+						<dt>Manufacturer</dt><dd><a href={ templ.URL("/dcim/manufacturers/" + m.Slug) }>{ m.Name }</a></dd>
+						if mt.PartNumber != "" {
+							<dt>Part number</dt><dd>{ mt.PartNumber }</dd>
+						}
+						<dt>Created</dt><dd>{ mt.CreatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/dcim/module-types/" + m.Slug + "/" + mt.Slug) }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								Model
+								<input type="text" name="model" value={ mt.Model } required data-slug-source/>
+							</label>
+							@SlugField(mt.Slug, true)
+							<label>
+								Part number
+								<input type="text" name="part_number" value={ mt.PartNumber }/>
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ mt.Description }/>
+							</label>
+						</div>
+						<div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+					</form>
+				</section>
+			</div>
+			@TemplatesCard("/dcim/module-types/"+m.Slug+"/"+mt.Slug, templates, errMsg)
+		</div>
+	}
+}
+
+// TemplatesCard renders an owner's component templates with an add form.
+// ownerPath is the owning type's UI path; template mutations post to
+// ownerPath/templates and deletes to /dcim/component-templates/{id}.
+templ TemplatesCard(ownerPath string, templates []gen.ComponentTemplate, errMsg string) {
+	<section class="card">
+		<header class="card-head"><h2>Component templates</h2></header>
+		if len(templates) == 0 {
+			<p class="empty">No templates — components added here are stamped onto every new device or installed module.</p>
+		} else {
+			<table class="objects">
+				<thead><tr><th>Kind</th><th>Name</th><th>Attributes</th><th></th></tr></thead>
+				<tbody>
+					for _, t := range templates {
+						<tr>
+							<td>
+								@KindChip(t.Kind)
+							</td>
+							<td>
+								{ t.Name }
+								if t.Label != "" {
+									<span class="muted">{ " (" + t.Label + ")" }</span>
+								}
+							</td>
+							<td class="muted">{ summarizeAttrs(t) }</td>
+							<td class="row-actions">
+								<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/component-templates/" + t.ID.String() + "?back=" + ownerPath } hx-confirm={ "Delete template " + t.Name + "?" }>Delete</button>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+		<details class="add-card add-inline" open?={ errMsg != "" }>
+			<summary>Add template</summary>
+			<form method="post" action={ templ.URL(ownerPath + "/templates") }>
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Kind
+						<select name="kind">
+							for _, k := range dcim.ComponentKinds {
+								<option value={ k }>{ k }</option>
+							}
+						</select>
+					</label>
+					<label>
+						Name
+						<input type="text" name="name" required placeholder="Te{module}/1 or GigabitEthernet1/0/1"/>
+					</label>
+					<label>
+						Label
+						<input type="text" name="label"/>
+					</label>
+					<label>
+						Type <span class="muted">(interface/console/power kinds)</span>
+						<input type="text" name="attr_type" placeholder="10gbase-x-sfpp"/>
+					</label>
+					<label>
+						Position <span class="muted">(module bays)</span>
+						<input type="text" name="attr_position" placeholder="1"/>
+					</label>
+				</div>
+				<div class="form-actions"><button type="submit" class="btn">Add template</button></div>
+			</form>
+		</details>
+	</section>
+}
+
+func summarizeAttrs(t gen.ComponentTemplate) string {
+	a, err := dcim.UnmarshalAttrs(t.Attrs)
+	if err != nil {
+		return ""
+	}
+	out := ""
+	if a.Type != "" {
+		out += "type=" + a.Type + " "
+	}
+	if a.Position != "" {
+		out += "position=" + a.Position + " "
+	}
+	if a.MgmtOnly {
+		out += "mgmt-only "
+	}
+	if a.MaxDrawW > 0 {
+		out += fmt.Sprintf("max=%dW ", a.MaxDrawW)
+	}
+	if a.FeedLeg != "" {
+		out += "leg=" + a.FeedLeg + " "
+	}
+	return out
+}

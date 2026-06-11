@@ -75,6 +75,49 @@ func (h *Handler) Routes() chi.Router {
 		r.Delete("/*", h.deleteLocation)
 	})
 
+	r.Route("/dcim/manufacturers", func(r chi.Router) {
+		r.Get("/", h.listManufacturers)
+		r.Post("/", h.createManufacturer)
+		r.Get("/{ref}", h.getManufacturer)
+		r.Patch("/{ref}", h.updateManufacturer)
+		r.Delete("/{ref}", h.deleteManufacturer)
+	})
+
+	r.Route("/dcim/device-roles", func(r chi.Router) {
+		r.Get("/", h.listDeviceRoles)
+		r.Post("/", h.createDeviceRole)
+		r.Get("/{ref}", h.getDeviceRole)
+		r.Patch("/{ref}", h.updateDeviceRole)
+		r.Delete("/{ref}", h.deleteDeviceRole)
+	})
+
+	// Catalog type refs are "manufacturer/slug" paths.
+	r.Route("/dcim/device-types", func(r chi.Router) {
+		r.Get("/", h.listDeviceTypes)
+		r.Post("/", h.createDeviceType)
+		r.Get("/*", h.getDeviceType)
+		r.Patch("/*", h.updateDeviceType)
+		r.Delete("/*", h.deleteDeviceType)
+	})
+
+	r.Route("/dcim/module-types", func(r chi.Router) {
+		r.Get("/", h.listModuleTypes)
+		r.Post("/", h.createModuleType)
+		r.Get("/*", h.getModuleType)
+		r.Patch("/*", h.updateModuleType)
+		r.Delete("/*", h.deleteModuleType)
+	})
+
+	// Templates are sub-resources: list/create filter by owner, the rest
+	// address by ID.
+	r.Route("/dcim/component-templates", func(r chi.Router) {
+		r.Get("/", h.listTemplates)
+		r.Post("/", h.createTemplate)
+		r.Get("/{id}", h.getTemplate)
+		r.Patch("/{id}", h.updateTemplate)
+		r.Delete("/{id}", h.deleteTemplate)
+	})
+
 	// User management is admin-only.
 	r.Route("/auth/users", func(r chi.Router) {
 		r.Use(h.requireAdminAPI)

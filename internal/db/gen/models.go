@@ -32,6 +32,42 @@ type Changelog struct {
 	DataAfter   []byte
 }
 
+type ComponentTemplate struct {
+	ID           uuid.UUID
+	DeviceTypeID *uuid.UUID
+	ModuleTypeID *uuid.UUID
+	Kind         string
+	Name         string
+	Label        string
+	Attrs        []byte
+	Description  string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type DeviceRole struct {
+	ID          uuid.UUID
+	Slug        string
+	Name        string
+	Color       string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type DeviceType struct {
+	ID             uuid.UUID
+	ManufacturerID uuid.UUID
+	Slug           string
+	Model          string
+	PartNumber     string
+	UHeight        float64
+	IsFullDepth    bool
+	Description    string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
 type Location struct {
 	ID          uuid.UUID
 	SiteID      uuid.UUID
@@ -44,6 +80,26 @@ type Location struct {
 	Description string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type Manufacturer struct {
+	ID          uuid.UUID
+	Slug        string
+	Name        string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type ModuleType struct {
+	ID             uuid.UUID
+	ManufacturerID uuid.UUID
+	Slug           string
+	Model          string
+	PartNumber     string
+	Description    string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type Session struct {
