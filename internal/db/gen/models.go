@@ -32,6 +32,19 @@ type Changelog struct {
 	DataAfter   []byte
 }
 
+type Component struct {
+	ID          uuid.UUID
+	DeviceID    uuid.UUID
+	Kind        string
+	Name        string
+	Label       string
+	Attrs       []byte
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	ModuleID    *uuid.UUID
+}
+
 type ComponentTemplate struct {
 	ID           uuid.UUID
 	DeviceTypeID *uuid.UUID
@@ -40,6 +53,26 @@ type ComponentTemplate struct {
 	Name         string
 	Label        string
 	Attrs        []byte
+	Description  string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type Device struct {
+	ID           uuid.UUID
+	SiteID       uuid.UUID
+	LocationID   *uuid.UUID
+	RackID       *uuid.UUID
+	Position     *float64
+	Face         *string
+	DeviceTypeID uuid.UUID
+	RoleID       uuid.UUID
+	TenantID     *uuid.UUID
+	Slug         string
+	Name         string
+	Status       string
+	Serial       string
+	AssetTag     string
 	Description  string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -91,6 +124,17 @@ type Manufacturer struct {
 	UpdatedAt   time.Time
 }
 
+type Module struct {
+	ID           uuid.UUID
+	DeviceID     uuid.UUID
+	BayID        uuid.UUID
+	ModuleTypeID uuid.UUID
+	Serial       string
+	Description  string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type ModuleType struct {
 	ID             uuid.UUID
 	ManufacturerID uuid.UUID
@@ -100,6 +144,20 @@ type ModuleType struct {
 	Description    string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+type Rack struct {
+	ID          uuid.UUID
+	SiteID      uuid.UUID
+	LocationID  *uuid.UUID
+	Slug        string
+	Name        string
+	Status      string
+	UHeight     int32
+	TenantID    *uuid.UUID
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Session struct {
