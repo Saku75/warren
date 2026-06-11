@@ -25,9 +25,12 @@ const SessionTTL = 7 * 24 * time.Hour
 // is updated at most once per this interval.
 const sessionExtendAfter = time.Hour
 
-// ProviderLocal is the built-in username/password provider. LDAP and
-// OIDC join in later Phase 2 work (design doc 0002 §2).
-const ProviderLocal = "local"
+// Provider keys stored on users; mirror the CHECK in migration 0004.
+const (
+	ProviderLocal = "local"
+	ProviderLDAP  = "ldap"
+	ProviderOIDC  = "oidc"
+)
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 
@@ -36,8 +39,9 @@ const MinPasswordLen = 10
 
 // Service implements users, sessions, and API tokens.
 type Service struct {
-	pool *pgxpool.Pool
-	q    *gen.Queries
+	pool     *pgxpool.Pool
+	q        *gen.Queries
+	external ExternalAuthenticator
 }
 
 func NewService(pool *pgxpool.Pool) *Service {
@@ -276,40 +280,56 @@ func errBadCredentials() error {
 
 // LoginPassword authenticates a username+password and opens a session,
 // returning the raw cookie token (its only appearance in plaintext).
+// The user's provider decides who verifies the password: local users
+// against their argon2id hash, external (LDAP) users against the
+// directory. Unknown usernames are offered to the external provider and
+// JIT-provisioned on success (design doc 0002 §2).
 func (s *Service) LoginPassword(ctx context.Context, username, password, ip, userAgent string) (gen.Session, string, error) {
 	if validUsername(username) != nil || password == "" {
 		return gen.Session{}, "", errBadCredentials()
 	}
+
 	u, err := s.q.GetUserByUsername(ctx, username)
-	if err != nil {
+	switch {
+	case err == nil && u.Provider == ProviderLocal:
+		if u.Disabled || u.PasswordHash == nil || !VerifyPassword(*u.PasswordHash, password) {
+			return gen.Session{}, "", errBadCredentials()
+		}
+		return s.openSession(ctx, u, ip, userAgent)
+
+	case err == nil && s.external != nil && u.Provider == s.external.Provider():
+		if u.Disabled {
+			return gen.Session{}, "", errBadCredentials()
+		}
+		ident, aerr := s.external.Authenticate(ctx, username, password)
+		if aerr != nil {
+			return gen.Session{}, "", errBadCredentials()
+		}
+		return s.loginExternalIdentity(ctx, s.external.Provider(), ident, ip, userAgent)
+
+	case err == nil:
+		// Known user whose provider cannot do password logins (OIDC, or
+		// LDAP without LDAP configured).
+		return gen.Session{}, "", errBadCredentials()
+
+	case s.external != nil:
+		ident, aerr := s.external.Authenticate(ctx, username, password)
+		if aerr != nil {
+			return gen.Session{}, "", errBadCredentials()
+		}
+		return s.loginExternalIdentity(ctx, s.external.Provider(), ident, ip, userAgent)
+
+	default:
 		// Burn comparable time so user existence is not observable.
 		VerifyPassword("$argon2id$v=19$m=65536,t=1,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", password)
 		return gen.Session{}, "", errBadCredentials()
 	}
-	if u.Disabled || u.Provider != ProviderLocal || u.PasswordHash == nil {
-		return gen.Session{}, "", errBadCredentials()
-	}
-	if !VerifyPassword(*u.PasswordHash, password) {
-		return gen.Session{}, "", errBadCredentials()
-	}
+}
 
-	raw, hash := NewSessionToken()
-	sess, err := s.q.CreateSession(ctx, gen.CreateSessionParams{
-		ID:        id.New(),
-		UserID:    u.ID,
-		TokenHash: hash,
-		CsrfToken: newSecret(),
-		Ip:        ip,
-		UserAgent: userAgent,
-		ExpiresAt: time.Now().Add(SessionTTL),
-	})
-	if err != nil {
-		return gen.Session{}, "", fault.FromDB(err, "session")
-	}
-	if err := s.q.TouchUserLogin(ctx, u.ID); err != nil {
-		return gen.Session{}, "", fmt.Errorf("auth: touch login: %w", err)
-	}
-	return sess, raw, nil
+// LoginOIDC opens a session for an identity asserted by the configured
+// OIDC IdP (called from the callback handler after token verification).
+func (s *Service) LoginOIDC(ctx context.Context, ident Identity, ip, userAgent string) (gen.Session, string, error) {
+	return s.loginExternalIdentity(ctx, ProviderOIDC, ident, ip, userAgent)
 }
 
 // ValidateSession resolves a cookie token to its user and session,

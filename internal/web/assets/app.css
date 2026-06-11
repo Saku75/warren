@@ -732,3 +732,23 @@ a.btn {
 	width: auto;
 	min-width: 0;
 }
+
+.login-divider {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	color: var(--muted);
+	font-size: 0.8125rem;
+	margin: 1.1rem 0;
+}
+
+.login-divider::before,
+.login-divider::after {
+	content: "";
+	flex: 1;
+	border-top: 1px solid var(--border);
+}
+
+.sso-btn {
+	text-align: center;
+}

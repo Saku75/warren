@@ -24,6 +24,7 @@ const (
 type authHandlers struct {
 	log          *slog.Logger
 	auth         *auth.Service
+	oidc         *auth.OIDCClient // nil unless WARREN_OIDC_* is configured
 	cookieSecure bool
 }
 
@@ -163,7 +164,7 @@ func (a *authHandlers) getLogin(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = web.LoginPage(sanitizeNext(r.URL.Query().Get("next")), csrf, "").Render(r.Context(), w)
+	_ = web.LoginPage(sanitizeNext(r.URL.Query().Get("next")), csrf, a.ssoLabel(), "").Render(r.Context(), w)
 }
 
 func (a *authHandlers) postLogin(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +176,7 @@ func (a *authHandlers) postLogin(w http.ResponseWriter, r *http.Request) {
 			Name: loginCSRFCookie, Value: csrf, Path: "/login", MaxAge: 3600,
 			HttpOnly: true, Secure: a.cookieSecure, SameSite: http.SameSiteLaxMode,
 		})
-		_ = web.LoginPage(sanitizeNext(r.PostFormValue("next")), csrf, msg).Render(r.Context(), w)
+		_ = web.LoginPage(sanitizeNext(r.PostFormValue("next")), csrf, a.ssoLabel(), msg).Render(r.Context(), w)
 	}
 
 	cookie, err := r.Cookie(loginCSRFCookie)

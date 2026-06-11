@@ -9,6 +9,9 @@ SELECT * FROM users WHERE id = $1;
 -- name: GetUserByUsername :one
 SELECT * FROM users WHERE username = $1;
 
+-- name: GetUserByExternalID :one
+SELECT * FROM users WHERE provider = $1 AND external_id = $2;
+
 -- name: ListUsers :many
 SELECT * FROM users ORDER BY username, id LIMIT $1 OFFSET $2;
 

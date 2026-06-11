@@ -42,7 +42,15 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 	dcimSvc := dcim.NewService(pool)
 	changelogSvc := changelog.NewService(gen.New(pool))
 	authSvc := auth.NewService(pool)
+	if cfg.LDAP.Enabled() {
+		authSvc.SetExternalAuthenticator(auth.NewLDAPAuthenticator(cfg.LDAP, log))
+		log.Info("ldap login enabled", "url", cfg.LDAP.URL, "base_dn", cfg.LDAP.BaseDN)
+	}
 	ah := &authHandlers{log: log, auth: authSvc, cookieSecure: cfg.CookieSecure}
+	if cfg.OIDC.Enabled() {
+		ah.oidc = auth.NewOIDCClient(cfg.OIDC, log)
+		log.Info("oidc login enabled", "issuer", cfg.OIDC.Issuer, "label", cfg.OIDC.ButtonLabel)
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -62,9 +70,13 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 	// the container needs no CDN and no filesystem.
 	r.Handle("/assets/*", http.StripPrefix("/assets/", web.AssetHandler()))
 
-	// Login is the only anonymous page.
+	// Login is the only anonymous surface.
 	r.Get("/login", ah.getLogin)
 	r.Post("/login", ah.postLogin)
+	if ah.oidc != nil {
+		r.Get("/login/oidc", ah.beginOIDC)
+		r.Get("/login/oidc/callback", ah.callbackOIDC)
+	}
 
 	// REST API v1: bearer tokens only (design doc 0002 §3).
 	r.Route("/api/v1", func(r chi.Router) {

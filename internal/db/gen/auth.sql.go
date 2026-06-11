@@ -322,6 +322,35 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const getUserByExternalID = `-- name: GetUserByExternalID :one
+SELECT id, username, display_name, email, provider, external_id, password_hash, is_admin, disabled, last_login_at, created_at, updated_at FROM users WHERE provider = $1 AND external_id = $2
+`
+
+type GetUserByExternalIDParams struct {
+	Provider   string
+	ExternalID string
+}
+
+func (q *Queries) GetUserByExternalID(ctx context.Context, arg GetUserByExternalIDParams) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByExternalID, arg.Provider, arg.ExternalID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.DisplayName,
+		&i.Email,
+		&i.Provider,
+		&i.ExternalID,
+		&i.PasswordHash,
+		&i.IsAdmin,
+		&i.Disabled,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, username, display_name, email, provider, external_id, password_hash, is_admin, disabled, last_login_at, created_at, updated_at FROM users WHERE username = $1
 `

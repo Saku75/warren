@@ -1,8 +1,16 @@
 package web
 
+import "net/url"
+
+// loginSSOURL builds the OIDC begin link, preserving the destination.
+func loginSSOURL(next string) string {
+	return "/login/oidc?next=" + url.QueryEscape(next)
+}
+
 // LoginPage is a standalone page (no app shell — nothing to navigate to
-// while anonymous). csrf is the double-submit cookie value.
-templ LoginPage(next string, csrf string, errMsg string) {
+// while anonymous). csrf is the double-submit cookie value; ssoLabel,
+// when non-empty, names the configured OIDC IdP.
+templ LoginPage(next string, csrf string, ssoLabel string, errMsg string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -35,6 +43,12 @@ templ LoginPage(next string, csrf string, errMsg string) {
 						<button type="submit" class="btn btn-wide">Sign in</button>
 					</div>
 				</form>
+				if ssoLabel != "" {
+					<div class="login-divider"><span>or</span></div>
+					<a class="btn btn-ghost btn-wide sso-btn" href={ templ.URL(loginSSOURL(next)) }>
+						Sign in with { ssoLabel }
+					</a>
+				}
 			</main>
 		</body>
 	</html>
