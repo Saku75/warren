@@ -2617,27 +2617,7 @@ func TemplatesCard(ownerPath string, templates []gen.ComponentTemplate, errMsg s
 }
 
 func summarizeAttrs(t gen.ComponentTemplate) string {
-	a, err := dcim.UnmarshalAttrs(t.Attrs)
-	if err != nil {
-		return ""
-	}
-	out := ""
-	if a.Type != "" {
-		out += "type=" + a.Type + " "
-	}
-	if a.Position != "" {
-		out += "position=" + a.Position + " "
-	}
-	if a.MgmtOnly {
-		out += "mgmt-only "
-	}
-	if a.MaxDrawW > 0 {
-		out += fmt.Sprintf("max=%dW ", a.MaxDrawW)
-	}
-	if a.FeedLeg != "" {
-		out += "leg=" + a.FeedLeg + " "
-	}
-	return out
+	return summarizeAttrsJSON(t.Attrs)
 }
 
 var _ = templruntime.GeneratedTemplate

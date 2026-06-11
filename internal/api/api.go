@@ -118,6 +118,30 @@ func (h *Handler) Routes() chi.Router {
 		r.Delete("/{id}", h.deleteTemplate)
 	})
 
+	r.Route("/dcim/racks", func(r chi.Router) {
+		r.Get("/", h.listRacks)
+		r.Post("/", h.createRack)
+		r.Get("/*", h.getRack)
+		r.Patch("/*", h.updateRack)
+		r.Delete("/*", h.deleteRack)
+	})
+
+	r.Route("/dcim/devices", func(r chi.Router) {
+		r.Get("/", h.listDevices)
+		r.Post("/", h.createDevice)
+		r.Get("/*", h.getDevice)
+		r.Patch("/*", h.updateDevice)
+		r.Delete("/*", h.deleteDevice)
+	})
+
+	r.Get("/dcim/components", h.listComponents)
+
+	r.Route("/dcim/modules", func(r chi.Router) {
+		r.Get("/", h.listModules)
+		r.Post("/", h.installModule)
+		r.Delete("/{id}", h.removeModule)
+	})
+
 	// User management is admin-only.
 	r.Route("/auth/users", func(r chi.Router) {
 		r.Use(h.requireAdminAPI)

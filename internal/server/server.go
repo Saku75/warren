@@ -93,6 +93,7 @@ func New(cfg config.Config, log *slog.Logger, version string, pool *pgxpool.Pool
 		ui.routes(r)
 		ui.profileRoutes(r)
 		ui.catalogRoutes(r)
+		ui.deviceRoutes(r)
 		r.Group(func(r chi.Router) {
 			r.Use(ah.requireAdminUI)
 			ui.userRoutes(r)

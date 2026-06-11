@@ -1,0 +1,484 @@
+package web
+
+import (
+	"fmt"
+	"github.com/saku75/warren/internal/db/gen"
+	"github.com/saku75/warren/internal/dcim"
+)
+
+// RacksPage lists racks.
+templ RacksPage(items []gen.ListRacksRow, errMsg string) {
+	@Layout("Racks", "racks") {
+		<header class="page-header">
+			<h1>Racks</h1>
+			<div class="page-actions"><a class="btn" href="/dcim/racks/new">Add rack</a></div>
+		</header>
+		<section id="racks-section">
+			@Alert(errMsg)
+			<div class="card table-card">
+				<table class="objects">
+					<thead><tr><th>Name</th><th>Site</th><th>Status</th><th>Height</th><th></th></tr></thead>
+					<tbody>
+						if len(items) == 0 {
+							<tr><td colspan="5" class="empty">No racks yet — <a href="/dcim/racks/new">add the first one</a>.</td></tr>
+						}
+						for _, x := range items {
+							<tr>
+								<td><a class="obj-link" href={ templ.URL("/dcim/racks/" + x.SiteSlug + "/" + x.Slug) }>{ x.Name }</a></td>
+								<td><a href={ templ.URL("/dcim/sites/" + x.SiteSlug) }>{ x.SiteName }</a></td>
+								<td>
+									@StatusBadge(x.Status)
+								</td>
+								<td>{ fmt.Sprintf("%dU", x.UHeight) }</td>
+								<td class="row-actions">
+									<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/racks/" + x.SiteSlug + "/" + x.Slug } hx-target="#racks-section" hx-swap="outerHTML" hx-confirm={ "Delete rack " + x.Name + "?" }>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	}
+}
+
+// RackFormPage is the standalone create form.
+templ RackFormPage(in dcim.RackInput, sites []gen.ListSitesRow, errMsg string) {
+	@Layout("Add rack", "racks") {
+		<nav class="crumbs"><a href="/dcim/racks">Racks</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header"><h1>Add rack</h1></header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/racks">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Site
+						@siteSelect(sites, in.SiteRef)
+					</label>
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="R07" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Status
+						@statusSelect(in.Status)
+					</label>
+					<label>
+						Height (U)
+						<input type="number" name="u_height" value={ fmt.Sprint(zeroTo(in.UHeight, 42)) } min="1" max="100"/>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create rack</button>
+					<a class="btn btn-ghost" href="/dcim/racks">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+func zeroTo(v int32, def int32) int32 {
+	if v == 0 {
+		return def
+	}
+	return v
+}
+
+templ siteSelect(sites []gen.ListSitesRow, selected string) {
+	<select name="site" required>
+		<option value="">— choose —</option>
+		for _, s := range sites {
+			<option value={ s.Slug } selected?={ s.Slug == selected }>{ s.Name }</option>
+		}
+	</select>
+}
+
+// RackDetailPage shows one rack with its mounted devices.
+templ RackDetailPage(rack gen.Rack, site gen.Site, mounted []gen.ListDevicesByRackRow, errMsg string) {
+	@Layout(rack.Name, "racks") {
+		<nav class="crumbs"><a href="/dcim/racks">Racks</a> <span>/</span> <span>{ rack.Name }</span></nav>
+		<header class="page-header">
+			<h1>
+				{ rack.Name }
+				@StatusBadge(rack.Status)
+			</h1>
+			<div class="page-actions">
+				<button class="btn btn-ghost-danger" hx-delete={ "/dcim/racks/" + site.Slug + "/" + rack.Slug } hx-confirm={ "Delete rack " + rack.Name + "?" }>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "dcim.rack:" + site.Slug + "/" + rack.Slug }</code></dd>
+						<dt>ID</dt><dd><code>{ rack.ID.String() }</code></dd>
+						<dt>Site</dt><dd><a href={ templ.URL("/dcim/sites/" + site.Slug) }>{ site.Name }</a></dd>
+						<dt>Height</dt><dd>{ fmt.Sprintf("%dU", rack.UHeight) }</dd>
+						<dt>Created</dt><dd>{ rack.CreatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/dcim/racks/" + site.Slug + "/" + rack.Slug) }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								Name
+								<input type="text" name="name" value={ rack.Name } required data-slug-source/>
+							</label>
+							@SlugField(rack.Slug, true)
+							<label>
+								Status
+								@statusSelect(rack.Status)
+							</label>
+							<label>
+								Height (U)
+								<input type="number" name="u_height" value={ fmt.Sprint(rack.UHeight) } min="1" max="100"/>
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ rack.Description }/>
+							</label>
+						</div>
+						<div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+					</form>
+				</section>
+			</div>
+			<section class="card">
+				<header class="card-head"><h2>Mounted devices</h2></header>
+				if len(mounted) == 0 {
+					<p class="empty">Nothing racked here yet.</p>
+				} else {
+					<table class="objects">
+						<thead><tr><th>Position</th><th>Device</th><th>Type</th><th>Face</th></tr></thead>
+						<tbody>
+							for _, d := range mounted {
+								<tr>
+									<td>
+										if d.Position != nil {
+											{ fmt.Sprintf("U%g–U%g", *d.Position, *d.Position+d.TypeUHeight-1) }
+										} else {
+											<span class="muted">unpositioned</span>
+										}
+									</td>
+									<td><a class="obj-link" href={ templ.URL("/dcim/devices/" + site.Slug + "/" + d.Slug) }>{ d.Name }</a></td>
+									<td class="muted">{ d.TypeModel }</td>
+									<td class="muted">
+										if d.Face != nil {
+											{ *d.Face }
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</section>
+		</div>
+	}
+}
+
+// DevicesPage lists devices.
+templ DevicesPage(items []gen.ListDevicesRow, errMsg string) {
+	@Layout("Devices", "devices") {
+		<header class="page-header">
+			<h1>Devices</h1>
+			<div class="page-actions"><a class="btn" href="/dcim/devices/new">Add device</a></div>
+		</header>
+		<section id="devices-section">
+			@Alert(errMsg)
+			<div class="card table-card">
+				<table class="objects">
+					<thead><tr><th>Name</th><th>Site</th><th>Type</th><th>Role</th><th>Status</th><th></th></tr></thead>
+					<tbody>
+						if len(items) == 0 {
+							<tr><td colspan="6" class="empty">No devices yet — <a href="/dcim/devices/new">add the first one</a>.</td></tr>
+						}
+						for _, d := range items {
+							<tr>
+								<td><a class="obj-link" href={ templ.URL("/dcim/devices/" + d.SiteSlug + "/" + d.Slug) }>{ d.Name }</a></td>
+								<td><a href={ templ.URL("/dcim/sites/" + d.SiteSlug) }>{ d.SiteName }</a></td>
+								<td class="muted">{ d.TypeModel }</td>
+								<td><span class="color-dot" style={ "background:" + d.RoleColor }></span> { d.RoleName }</td>
+								<td>
+									@StatusBadge(d.Status)
+								</td>
+								<td class="row-actions">
+									<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/devices/" + d.SiteSlug + "/" + d.Slug } hx-target="#devices-section" hx-swap="outerHTML" hx-confirm={ "Delete device " + d.Name + " and its components?" }>Delete</button>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	}
+}
+
+// DeviceFormPage is the standalone create form.
+templ DeviceFormPage(in dcim.DeviceInput, sites []gen.ListSitesRow, types []gen.ListDeviceTypesRow, roles []gen.DeviceRole, racks []gen.ListRacksRow, errMsg string) {
+	@Layout("Add device", "devices") {
+		<nav class="crumbs"><a href="/dcim/devices">Devices</a> <span>/</span> <span>Add</span></nav>
+		<header class="page-header"><h1>Add device</h1></header>
+		@Alert(errMsg)
+		<section class="card form-card">
+			<form method="post" action="/dcim/devices">
+				@CSRFField()
+				<div class="form-grid">
+					<label>
+						Name
+						<input type="text" name="name" value={ in.Name } required placeholder="core-sw-01" data-slug-source/>
+					</label>
+					@SlugField(in.Slug, false)
+					<label>
+						Site
+						@siteSelect(sites, in.SiteRef)
+					</label>
+					<label>
+						Device type
+						<select name="device_type" required>
+							<option value="">— choose —</option>
+							for _, t := range types {
+								<option value={ t.ManufacturerSlug + "/" + t.Slug } selected?={ t.ManufacturerSlug + "/" + t.Slug == in.DeviceTypeRef }>{ t.ManufacturerName + " " + t.Model }</option>
+							}
+						</select>
+					</label>
+					<label>
+						Role
+						<select name="role" required>
+							<option value="">— choose —</option>
+							for _, x := range roles {
+								<option value={ x.Slug } selected?={ x.Slug == in.RoleRef }>{ x.Name }</option>
+							}
+						</select>
+					</label>
+					<label>
+						Status
+						@statusSelect(in.Status)
+					</label>
+					<label>
+						Rack <span class="muted">(optional, same site)</span>
+						<select name="rack">
+							<option value="">— none —</option>
+							for _, x := range racks {
+								<option value={ x.SiteSlug + "/" + x.Slug } selected?={ x.SiteSlug + "/" + x.Slug == in.RackRef }>{ x.SiteName + " / " + x.Name }</option>
+							}
+						</select>
+					</label>
+					<label>
+						Position (lowest U)
+						<input type="number" name="position" min="1" step="0.5" value={ posValue(in.Position) }/>
+					</label>
+					<label>
+						Face
+						<select name="face">
+							<option value="front" selected?={ in.Face != "rear" }>front</option>
+							<option value="rear" selected?={ in.Face == "rear" }>rear</option>
+						</select>
+					</label>
+					<label>
+						Serial
+						<input type="text" name="serial" value={ in.Serial }/>
+					</label>
+					<label class="span-2">
+						Description
+						<input type="text" name="description" value={ in.Description }/>
+					</label>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="btn">Create device</button>
+					<a class="btn btn-ghost" href="/dcim/devices">Cancel</a>
+				</div>
+			</form>
+		</section>
+	}
+}
+
+func posValue(p float64) string {
+	if p == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%g", p)
+}
+
+// DeviceDetailPage: facts, edit, components, modules with install form.
+templ DeviceDetailPage(d gen.Device, site gen.Site, typeLabel string, roleLabel string, comps []gen.Component, mods []gen.ListModulesByDeviceRow, emptyBays []gen.Component, moduleTypes []gen.ListModuleTypesRow, errMsg string) {
+	@Layout(d.Name, "devices") {
+		<nav class="crumbs"><a href="/dcim/devices">Devices</a> <span>/</span> <span>{ d.Name }</span></nav>
+		<header class="page-header">
+			<h1>
+				{ d.Name }
+				@StatusBadge(d.Status)
+			</h1>
+			<div class="page-actions">
+				<button class="btn btn-ghost-danger" hx-delete={ "/dcim/devices/" + site.Slug + "/" + d.Slug } hx-confirm={ "Delete device " + d.Name + " and its components?" }>Delete</button>
+			</div>
+		</header>
+		@Alert(errMsg)
+		<div class="cols">
+			<div class="col-stack">
+				<section class="card">
+					<header class="card-head"><h2>Details</h2></header>
+					<dl class="facts">
+						<dt>Reference</dt><dd><code>{ "dcim.device:" + site.Slug + "/" + d.Slug }</code></dd>
+						<dt>ID</dt><dd><code>{ d.ID.String() }</code></dd>
+						<dt>Site</dt><dd><a href={ templ.URL("/dcim/sites/" + site.Slug) }>{ site.Name }</a></dd>
+						<dt>Type</dt><dd>{ typeLabel }</dd>
+						<dt>Role</dt><dd>{ roleLabel }</dd>
+						if d.Position != nil {
+							<dt>Position</dt><dd>{ fmt.Sprintf("U%g", *d.Position) }
+								if d.Face != nil {
+									{ " (" + *d.Face + ")" }
+								}
+							</dd>
+						}
+						if d.Serial != "" {
+							<dt>Serial</dt><dd><code>{ d.Serial }</code></dd>
+						}
+						<dt>Created</dt><dd>{ d.CreatedAt.Format("2006-01-02 15:04") }</dd>
+					</dl>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Edit</h2></header>
+					<form method="post" action={ templ.URL("/dcim/devices/" + site.Slug + "/" + d.Slug) }>
+						@CSRFField()
+						<div class="form-grid">
+							<label>
+								Name
+								<input type="text" name="name" value={ d.Name } required data-slug-source/>
+							</label>
+							@SlugField(d.Slug, true)
+							<label>
+								Status
+								@statusSelect(d.Status)
+							</label>
+							<label>
+								Serial
+								<input type="text" name="serial" value={ d.Serial }/>
+							</label>
+							<label class="span-2">
+								Description
+								<input type="text" name="description" value={ d.Description }/>
+							</label>
+						</div>
+						<div class="form-actions"><button type="submit" class="btn">Save changes</button></div>
+					</form>
+				</section>
+				<section class="card">
+					<header class="card-head"><h2>Modules</h2></header>
+					if len(mods) == 0 {
+						<p class="empty">No modules installed.</p>
+					} else {
+						<table class="objects">
+							<thead><tr><th>Bay</th><th>Module type</th><th>Serial</th><th></th></tr></thead>
+							<tbody>
+								for _, m := range mods {
+									<tr>
+										<td><code>{ m.BayName }</code></td>
+										<td>{ m.TypeModel }</td>
+										<td class="muted">{ m.Serial }</td>
+										<td class="row-actions">
+											<button class="btn btn-ghost-danger btn-small" hx-delete={ "/dcim/modules/" + m.ID.String() + "?back=/dcim/devices/" + site.Slug + "/" + d.Slug } hx-confirm={ "Remove module from " + m.BayName + "? Nested modules and components are removed too." }>Remove</button>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+					if len(emptyBays) > 0 {
+						<details class="add-card add-inline" open?={ errMsg != "" }>
+							<summary>Install module</summary>
+							<form method="post" action={ templ.URL("/dcim/devices/" + site.Slug + "/" + d.Slug + "/modules") }>
+								@CSRFField()
+								<div class="form-grid">
+									<label>
+										Bay
+										<select name="bay" required>
+											for _, b := range emptyBays {
+												<option value={ b.ID.String() }>{ b.Name }</option>
+											}
+										</select>
+									</label>
+									<label>
+										Module type
+										<select name="module_type" required>
+											<option value="">— choose —</option>
+											for _, t := range moduleTypes {
+												<option value={ t.ManufacturerSlug + "/" + t.Slug }>{ t.ManufacturerName + " " + t.Model }</option>
+											}
+										</select>
+									</label>
+									<label>
+										Serial
+										<input type="text" name="serial"/>
+									</label>
+								</div>
+								<div class="form-actions"><button type="submit" class="btn">Install</button></div>
+							</form>
+						</details>
+					}
+				</section>
+			</div>
+			<section class="card">
+				<header class="card-head"><h2>Components</h2></header>
+				if len(comps) == 0 {
+					<p class="empty">No components.</p>
+				} else {
+					<table class="objects">
+						<thead><tr><th>Kind</th><th>Name</th><th>Attributes</th><th>Via</th></tr></thead>
+						<tbody>
+							for _, c := range comps {
+								<tr>
+									<td>
+										@KindChip(c.Kind)
+									</td>
+									<td>{ c.Name }</td>
+									<td class="muted">{ summarizeAttrsJSON(c.Attrs) }</td>
+									<td class="muted">
+										if c.ModuleID != nil {
+											module
+										} else {
+											built-in
+										}
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</section>
+		</div>
+	}
+}
+
+func summarizeAttrsJSON(b []byte) string {
+	a, err := dcim.UnmarshalAttrs(b)
+	if err != nil {
+		return ""
+	}
+	out := ""
+	if a.Type != "" {
+		out += "type=" + a.Type + " "
+	}
+	if a.Position != "" {
+		out += "position=" + a.Position + " "
+	}
+	if a.MgmtOnly {
+		out += "mgmt-only "
+	}
+	if a.MaxDrawW > 0 {
+		out += fmt.Sprintf("max=%dW ", a.MaxDrawW)
+	}
+	if a.FeedLeg != "" {
+		out += "leg=" + a.FeedLeg + " "
+	}
+	return out
+}
